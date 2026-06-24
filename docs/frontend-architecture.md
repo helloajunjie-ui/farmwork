@@ -13,9 +13,15 @@
 
 ```
 App.vue
-├── AppHeader.vue              # 顶部导航栏：玩家资产概览
-│   ├── GoldDisplay.vue        # 金币显示
-│   └── InventoryBadge.vue     # 库存快捷显示（玉米/小麦/啤酒花/种子）
+├── AppHeader.vue              # 顶部导航栏：玩家资产概览 (PC: lg:block, Mobile: hidden)
+│   ├── GoldDisplay.vue        # 金币显示 (formatGold 千分位 + 🪙)
+│   ├── InventoryBadge.vue     # 库存快捷显示 (formatAmountCompact 吨)
+│   └── LeaderboardModal.vue   # 🏆 排行榜入口按钮
+│
+├── AppFooter.vue              # 底部 TabBar (Mobile: lg:hidden, 3 tabs)
+│   ├── 🏠 农场 (/)
+│   ├── 📈 市场 (/market)
+│   └── 👤 我的 (/user)
 │
 ├── router-view
 │   ├── FarmView.vue           # 🏠 农场主页（默认路由 /）
@@ -28,24 +34,33 @@ App.vue
 │   │   ├── [SeedStation]      # 种子站（含利润计算器）
 │   │   │   └── ProfitWarning  # 利润预警（红色，播种即亏损时显示）
 │   │   ├── PlotGrid.vue       # 土地网格列表
-│   │   │   └── PlotCard.vue   # 单块土地卡片（×N）
+│   │   │   └── PlotCard.vue   # 单块土地卡片（×N，Mobile: Bottom Sheet 弹窗）
 │   │   │       ├── LockedState    # 🔒 锁定状态（斜纹背景 + 金币价格）
 │   │   │       ├── IdleState      # 空闲状态（播种按钮）
 │   │   │       ├── GrowingState   # 生长中状态（倒计时）
 │   │   │       └── ReadyState     # 已成熟状态（收割按钮）
-│   │   ├── [BankruptcyOverlay] # 破产清算全屏动画（is_bankrupt 时触发）
-│   │   └── ErrorToast         # 错误提示（fixed 底部）
+│   │   ├── [ProcurementTerminal] # 采购终端（Mobile: Bottom Sheet）
+│   │   └── [BankruptcyOverlay] # 破产清算全屏动画（is_bankrupt 时触发）
 │   │
 │   ├── MarketView.vue         # 🏪 市场页面（路由 /market）
-│   │   ├── MarketHeader.vue   # 市场标题 + 发布卖单按钮
+│   │   ├── [AssetSwitcher]    # 移动端资产切换按钮（Mobile: 底部弹出作物选择器）
 │   │   ├── OrderTable.vue     # 深度列表（按单价聚合，地板价红框高亮）
 │   │   ├── [CompanyPanel]     # NPC 企业直购面板（B2B 模式）
 │   │   ├── [NewsTicker]       # 宏观新闻跑马灯
-│   │   └── SellModal.vue      # 发布卖单弹窗（含单价输入 + 自动计算总收入）
+│   │   ├── SellModal.vue      # 发布卖单弹窗（含单价输入 + 自动计算总收入）
+│   │   └── [StickyActionBar]  # 底部固定操作栏（Mobile: Buy/Sell 按钮）
+│   │
+│   ├── UserView.vue           # 👤 我的 / 仓储大仓（路由 /user）
+│   │   ├── [PlayerInfoCard]   # 玩家信息卡片（阶级徽章 + 净值）
+│   │   ├── [AssetStructure]   # 资产结构（💧流动资金 / 📦大宗存货 进度条）
+│   │   ├── [AssetOverview]    # 3列资产概览（地块/种子/品类）
+│   │   └── [WarehouseCard]    # 仓储卡片列表（×N，容量进度条 + 市值）
 │   │
 │   └── NotFoundView.vue       # 404 页面
 │
-└── AppFooter.vue              # 底部导航（农场 / 市场）
+└── LeaderboardModal.vue       # 🏆 排行榜（PC: 居中弹窗, Mobile: Bottom Sheet）
+    ├── 农夫新星榜 (≤6块地)
+    └── 资本巨鳄榜 (>6块地)
 ```
 
 > `[Brackets]` 表示内联在父组件中的片段，非独立组件文件。
@@ -158,6 +173,7 @@ interface MarketState {
 fetchOrderBook()         // GET /api/market/orders
 sell(item, amount, unitPrice)  // POST /api/market/sell → 成功后重新 fetchOrderBook + fetchUserInfo
 buy(orderId)             // POST /api/market/buy → 成功后重新 fetchOrderBook + fetchUserInfo
+setActiveCrop(cropId)    // 切换当前查看的作物
 startPolling()           // 启动 3 秒 SWR 轮询
 stopPolling()            // 停止轮询
 ```
@@ -191,6 +207,32 @@ interface CompanyState {
 // Actions
 fetchCompanies()              // GET /api/market/companies
 sellToCompany(companyId, amount) // POST /api/market/sell-to-company
+```
+
+### 2.5 `useLeaderboardStore` — 排行榜 (MVP 6.0)
+
+```typescript
+// stores/leaderboard.ts
+interface LeaderboardEntry {
+  rank: number
+  user_id: number
+  nickname: string
+  gold: number
+  unlocked_plots: number
+  land_value: number
+  inventory_value: number
+  net_worth: number
+}
+
+interface LeaderboardState {
+  farmers: LeaderboardEntry[]       // 农夫新星榜 (≤6块地)
+  capitalists: LeaderboardEntry[]   // 资本巨鳄榜 (>6块地)
+  loading: boolean
+  updatedAt: number
+}
+
+// Actions
+fetchLeaderboard()    // GET /api/leaderboard → 填充两个榜单
 ```
 
 ---
@@ -282,6 +324,49 @@ sellToCompany(companyId, amount) // POST /api/market/sell-to-company
 └─────────────────────────────────────────────────────┘
 ```
 
+### 3.7 排行榜数据流 (MVP 6.0)
+
+```
+┌─ 用户点击 🏆 排行 ──────────────────────────────┐
+│  1. LeaderboardModal.vue 显示                     │
+│  2. onMounted → leaderboardStore.fetchLeaderboard() │
+│  3. GET /api/leaderboard                          │
+│     ↓                                             │
+│  4. 后端动态计算净值：                              │
+│     net_worth = gold + (plots × 1000) + ∑(inv × buyPrice) │
+│     ↓                                             │
+│  5. 返回两个榜单：                                  │
+│     farmers[]     → ≤6块地，Top 50                 │
+│     capitalists[] → >6块地，Top 50                 │
+│     ↓                                             │
+│  6. 前端渲染：🥇🥈🥉 + 排名 + 头像 + 昵称 + 地块 + 净值 │
+└─────────────────────────────────────────────────────┘
+```
+
+### 3.8 移动端 Bottom Sheet 模式 (MVP 5.2)
+
+```
+┌─ 移动端交互模式 ──────────────────────────────────┐
+│  所有弹窗/模态框在移动端使用 Bottom Sheet：          │
+│                                                     │
+│  1. PlotCard 种子站 / 采购终端                       │
+│     PC: 居中弹窗 (hidden lg:flex)                   │
+│     Mobile: 底部滑出 (lg:hidden animate-slide-up)   │
+│                                                     │
+│  2. MarketView 作物选择器                            │
+│     PC: 左侧导航栏                                  │
+│     Mobile: 底部 Asset Switcher 按钮 → Bottom Sheet │
+│                                                     │
+│  3. LeaderboardModal                                │
+│     PC: 居中弹窗                                    │
+│     Mobile: 底部滑出                                │
+│                                                     │
+│  4. StickyActionBar (MarketView)                    │
+│     Mobile: 底部固定 Buy/Sell 按钮                   │
+│     padding-bottom: env(safe-area-inset-bottom)     │
+└─────────────────────────────────────────────────────┘
+```
+
 ---
 
 ## 四、UI/UX 规范 (Text-First)
@@ -303,6 +388,8 @@ sellToCompany(companyId, amount) // POST /api/market/sell-to-company
 | 危险/亏损 | `#ef4444` (red-500) | 亏损警告、破产动画 |
 | 买入价 | `#22c55e` (green-500) | 市场买入价（绿色） |
 | 卖出价 | `#ef4444` (red-500) | 市场卖出价（红色） |
+| 农夫榜 | `#4ade80` (green-400) | 农夫新星榜主题色 |
+| 资本榜 | `#c084fc` (purple-400) | 资本巨鳄榜主题色 |
 
 ### 4.2 状态卡片样式
 
@@ -375,7 +462,55 @@ sellToCompany(companyId, amount) // POST /api/market/sell-to-company
 └──────────────────────────────────────────────┘
 ```
 
-### 4.6 状态反馈
+### 4.6 仓储大仓 UI (MVP 6.0)
+
+```
+┌─ 👤 我的 / 仓储大仓 ─────────────────────────┐
+│                                              │
+│  ┌─ 玩家信息 ──────────────────────────┐     │
+│  │  👨‍🌾 农夫新星                        │     │  ← 阶级徽章
+│  │  青羽                                │     │
+│  │  预估总净值: 12,500 🪙               │     │
+│  │  💧████████░░░░░░░░░░  40% 流动资金  │     │  ← 资产结构
+│  │  📦░░░░░░████████░░  60% 大宗存货    │     │
+│  └──────────────────────────────────────┘     │
+│                                              │
+│  ┌─ 资产概览 ──────────────────────────┐     │
+│  │  🏞️ 6 地块  🌱 10 种子  📦 3 品类  │     │
+│  └──────────────────────────────────────┘     │
+│                                              │
+│  ┌─ 仓储卡片 ──────────────────────────┐     │
+│  │  🌽 玉米                             │     │
+│  │  1,200 吨 / 10,000 吨               │     │
+│  │  ████████░░░░░░░░░░░░  12%          │     │  ← 容量进度条
+│  │  市值: 7,200 🪙                      │     │
+│  └──────────────────────────────────────┘     │
+│  ┌─ 仓储卡片 ──────────────────────────┐     │
+│  │  🌾 小麦                             │     │
+│  │  500 吨 / 10,000 吨                 │     │
+│  │  ███░░░░░░░░░░░░░░░░░  5%           │     │
+│  │  市值: 1,500 🪙                      │     │
+│  └──────────────────────────────────────┘     │
+└──────────────────────────────────────────────┘
+```
+
+### 4.7 排行榜 UI (MVP 6.0)
+
+```
+┌─ 🏆 阶级排行榜 ───────────────────────────┐
+│  [👨‍🌾 农夫新星榜]  [🎩 资本巨鳄榜]        │  ← Tab 切换
+│                                            │
+│  🥇 农民小王   6 地块   8,500 🪙          │
+│  🥈 新手农夫   4 地块   3,200 🪙          │
+│  🥉 种田人     5 地块   2,100 🪙          │
+│  #4 张三       3 地块   1,500 🪙          │
+│  ...                                       │
+│                                            │
+│  更新于: 14:30                             │
+└────────────────────────────────────────────┘
+```
+
+### 4.8 状态反馈
 
 | 场景 | 反馈 |
 |------|------|
@@ -386,6 +521,8 @@ sellToCompany(companyId, amount) // POST /api/market/sell-to-company
 | 空状态 | 市场无订单时显示 `📭 市场上空空如也，快来发布第一单吧` |
 | 网络错误 | 页面顶部 Toast: `⚠️ 网络开小差了，请稍后重试` |
 | 破产清算 | 全屏暗色遮罩 + shake 动画 + 土地法拍清单，3秒后自动关闭 |
+| 排行榜加载 | 骨架屏列表（3行灰色占位） |
+| 排行榜空 | 该阶级暂无玩家上榜 |
 
 ---
 
@@ -407,6 +544,12 @@ const routes = [
     meta: { title: '🏪 市场' }
   },
   {
+    path: '/user',
+    name: 'user',
+    component: UserView,
+    meta: { title: '👤 我的' }
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
     component: NotFoundView,
@@ -417,7 +560,73 @@ const routes = [
 
 ---
 
-## 六、目录结构
+## 六、全局格式化工具 (MVP 6.0)
+
+```typescript
+// utils/format.ts
+
+formatGold(amount)           // "12,500 🪙" 或 "12.5k 🪙"
+formatGoldCompact(amount)    // "12.5k"（紧凑模式）
+formatAmount(amount)         // "1,200 吨"
+formatAmountCompact(amount)  // "1.2kt"（紧凑模式）
+formatPercent(value)         // "+45%" 或 "-30%"
+formatDuration(minutes)      // "1 小时 30 分钟"
+formatSeconds(seconds)       // "1h 1m 1s"
+formatUnitPrice(price)       // "🪙 5.00"
+```
+
+> **设计原则**：所有用户可见的数字必须经过格式化工具处理，杜绝裸数字。
+
+---
+
+## 七、响应式设计模式 (MVP 5.2)
+
+### 7.1 双轨渲染模式
+
+同一组件在 PC 和 Mobile 上使用不同的 UI 容器：
+
+```vue
+<!-- PC 版：居中弹窗 -->
+<div class="hidden lg:flex fixed inset-0 z-50 items-center justify-center">
+  <div class="bg-slate-800 rounded-xl w-full max-w-md mx-4">
+    <!-- PC 内容 -->
+  </div>
+</div>
+
+<!-- Mobile 版：Bottom Sheet -->
+<div class="lg:hidden fixed inset-x-0 bottom-0 z-50 animate-slide-up">
+  <div class="bg-slate-800 rounded-t-2xl max-h-[80vh] overflow-y-auto">
+    <div class="w-10 h-1 bg-slate-600 rounded-full mx-auto my-3" /><!-- 拖拽指示条 -->
+    <!-- Mobile 内容 -->
+  </div>
+</div>
+```
+
+### 7.2 安全区适配
+
+```css
+/* main.css */
+.safe-area-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 1rem));
+}
+```
+
+### 7.3 动画定义
+
+```css
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+@keyframes slide-down {
+  from { transform: translateY(0); }
+  to   { transform: translateY(100%); }
+}
+```
+
+---
+
+## 八、目录结构
 
 ```
 client/
@@ -429,33 +638,41 @@ client/
 │   └── favicon.ico
 └── src/
     ├── main.ts                  # 入口
-    ├── App.vue                  # 根组件
+    ├── App.vue                  # 根组件（含 AppHeader + AppFooter 条件渲染）
     ├── router/
-    │   └── index.ts             # 路由配置
+    │   └── index.ts             # 路由配置（/ /market /user /404）
     ├── stores/
     │   ├── user.ts              # 玩家信息 store（含地租健康度）
-    │   ├── farm.ts              # 农场 store（含种子价格）
+    │   ├── farm.ts              # 农场 store（含种子价格 + 倒计时引擎）
     │   ├── market.ts            # 市场 store（深度 + 轮询）
-    │   └── company.ts           # 企业 store（NPC + 宏观事件）
+    │   ├── company.ts           # 企业 store（NPC + 宏观事件）
+    │   └── leaderboard.ts       # 排行榜 store（双轨榜单）
     ├── api/
     │   ├── index.ts             # Axios 实例 + 真实 API 函数
     │   └── mock.ts              # Mock 实现（纯前端模拟）
     ├── components/
-    │   ├── AppHeader.vue
-    │   ├── AppFooter.vue
-    │   ├── GoldDisplay.vue
-    │   ├── InventoryBadge.vue
-    │   └── SellModal.vue
+    │   ├── AppHeader.vue        # PC 顶部导航（lg:block, Mobile: hidden）
+    │   ├── AppFooter.vue        # Mobile 底部 TabBar（lg:hidden, 3 tabs）
+    │   ├── GoldDisplay.vue      # 金币显示（formatGold）
+    │   ├── InventoryBadge.vue   # 库存快捷显示（formatAmountCompact）
+    │   ├── LeaderboardModal.vue # 排行榜弹窗（PC 居中 + Mobile Bottom Sheet）
+    │   └── SellModal.vue        # 发布卖单弹窗
     ├── views/
     │   ├── FarmView.vue         # 农场主页（含资金链仪表盘 + 种子站 + 破产动画）
-    │   ├── FarmStats.vue
-    │   ├── PlotGrid.vue
-    │   ├── PlotCard.vue
-    │   ├── MarketView.vue       # 市场页（含企业面板 + 新闻跑马灯）
-    │   ├── OrderTable.vue
-    │   └── NotFoundView.vue
+    │   ├── FarmStats.vue        # 农场统计
+    │   ├── PlotGrid.vue         # 土地网格
+    │   ├── PlotCard.vue         # 单块土地卡片（Mobile Bottom Sheet）
+    │   ├── MarketView.vue       # 市场页（含企业面板 + 新闻跑马灯 + StickyActionBar）
+    │   ├── OrderTable.vue       # 深度列表
+    │   ├── UserView.vue         # 仓储大仓（阶级徽章 + 净值 + 资产结构 + 仓储卡片）
+    │   └── NotFoundView.vue     # 404
+    ├── config/
+    │   ├── gameData.ts          # 游戏配置数据（作物/公司/分类）
+    │   └── crops.ts             # 作物配置
     ├── types/
-    │   └── index.ts             # TypeScript 类型定义
+    │   └── index.ts             # TypeScript 类型定义（含 LeaderboardEntry）
+    ├── utils/
+    │   └── format.ts            # 全局单位格式化工具（MVP 6.0）
     └── styles/
-        └── main.css             # 全局样式（TailwindCSS + 清算动画）
+        └── main.css             # 全局样式（TailwindCSS + 清算动画 + slide-up/down）
 ```

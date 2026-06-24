@@ -1,6 +1,6 @@
-# 🏡 农场游戏 — 架构总览
+# 🏡 赛博农场 — 架构总览
 
-> **版本**: MVP 4.0 (蛛网经济 & 阶层清算)  
+> **版本**: MVP 6.0 (阶级榜单 & 仓储美学)  
 > **哲学**: 文字先行 · 轻量高效 · 反通胀经济 · 周期博弈
 
 ---
@@ -12,14 +12,17 @@
 │            Presentation Layer                │
 │   Vue 3 SPA (Vite + Pinia + TailwindCSS)    │
 │   Text-First UI · 纯静态 · 可部署 Vercel     │
+│   移动端: Bottom Sheet + TabBar              │
+│   PC端: 居中模态框 + Header                  │
 ├─────────────────────────────────────────────┤
 │            Business Gateway Layer            │
 │   Express + TypeScript · RESTful API         │
 │   Server Time = 唯一真理 · ACID 事务         │
 │   价格波动引擎 · 地租结算中间件               │
+│   JWT 鉴权 · 排行榜引擎                      │
 ├─────────────────────────────────────────────┤
 │            Persistence Layer                 │
-│   PostgreSQL 14+ · Prisma ORM                │
+│   SQLite · Prisma ORM                        │
 │   行级锁 FOR UPDATE · 时间差 O(1) 离线结算   │
 └─────────────────────────────────────────────┘
 ```
@@ -34,47 +37,50 @@
 | **O(1) 离线结算** | 打工牛 + 地租均使用时间差公式，零 cron 开销 |
 | **指数级金币回收** | 土地解锁成本指数递增 + 地租指数递增，对抗通胀 |
 | **蛛网经济模型** | 种子价格滞后于收购价 ~5 分钟，创造套利窗口 |
+| **双轨制排行榜** | 农夫新星榜(≤6块地) vs 资本巨鳄榜(>6块地)，动态净值计算 |
+| **全局单位格式化** | 所有数字必须带 🪙/吨 单位，杜绝光秃秃的数字 |
 
 ---
 
 ## 二、数据流
 
 ```
-┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
-│  User    │    │  Farm    │    │  Market  │    │ Company  │
-│  Store   │    │  Store   │    │  Store   │    │  Store   │
-├──────────┤    ├──────────┤    ├──────────┤    ├──────────┤
-│ gold     │    │ plots[]  │    │ depth[]  │    │companies │
-│ items    │    │ cowStatus│    │ myOrders │    │ events[] │
-│ upkeep   │    │ loading  │    │ loading  │    │ loading  │
-│ health%  │    └────┬─────┘    └────┬─────┘    └────┬─────┘
-└────┬─────┘         │               │               │
-     │               └───────────────┼───────────────┘
+┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────────┐
+│  User    │    │  Farm    │    │  Market  │    │ Company  │    │ Leaderboard  │
+│  Store   │    │  Store   │    │  Store   │    │  Store   │    │   Store      │
+├──────────┤    ├──────────┤    ├──────────┤    ├──────────┤    ├──────────────┤
+│ gold     │    │ plots[]  │    │ depth[]  │    │companies │    │ farmers[]    │
+│ items    │    │ cowStatus│    │ myOrders │    │ events[] │    │ capitalists[]│
+│ upkeep   │    │ loading  │    │ loading  │    │ loading  │    │ loading      │
+│ health%  │    └────┬─────┘    └────┬─────┘    └────┬─────┘    └──────┬───────┘
+└────┬─────┘         │               │               │                │
+     │               └───────────────┼───────────────┘────────────────┘
      │                               │
      ▼                               ▼
-┌──────────────────────────────────────────────┐
-│               API Layer                      │
-│          (Axios / Mock 双模式)                │
-└──────────────────────┬───────────────────────┘
-                       │ HTTP / Mock
-                       ▼
-┌──────────────────────────────────────────────┐
-│            Express API (RESTful)              │
-│  ┌──────────┐ ┌──────────┐ ┌──────────────┐  │
-│  │  routes/  │ │services/ │ │ middleware/  │  │
-│  │ farm.ts   │ │priceEng. │ │ upkeep.ts    │  │
-│  │ market.ts │ │          │ │ (地租+清算)   │  │
-│  │ user.ts   │ └──────────┘ └──────────────┘  │
-│  └──────────┘                                 │
-└──────────────────────┬───────────────────────┘
-                       │ Prisma
-                       ▼
-┌──────────────────────────────────────────────┐
-│               PostgreSQL                      │
-│  7 tables: users, inventory, plots, cows,     │
-│  market_orders, market_environment,           │
-│  market_events                                │
-└──────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                       API Layer                              │
+│                  (Axios / Mock 双模式)                        │
+└──────────────────────────┬───────────────────────────────────┘
+                           │ HTTP / Mock
+                           ▼
+┌──────────────────────────────────────────────────────────────┐
+│                Express API (RESTful)                          │
+│  ┌──────────┐ ┌──────────┐ ┌──────────────┐ ┌─────────────┐ │
+│  │  routes/  │ │services/ │ │ middleware/  │ │  config/    │ │
+│  │ auth.ts   │ │priceEng. │ │ auth.ts      │ │ crops.ts    │ │
+│  │ farm.ts   │ │          │ │ upkeep.ts    │ │ companies.ts│ │
+│  │ market.ts │ └──────────┘ └──────────────┘ │ economy_    │ │
+│  │ user.ts   │                               │ matrix.ts   │ │
+│  │ leaderboard.ts                            └─────────────┘ │
+│  └──────────┘                                                 │
+└──────────────────────────┬───────────────────────────────────┘
+                           │ Prisma
+                           ▼
+┌──────────────────────────────────────────────────────────────┐
+│                       SQLite                                  │
+│  7 tables: users, inventory, plots, cows, market_orders,     │
+│  market_environment, market_events                            │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -97,6 +103,7 @@
 
 | 方法 | 路径 | 说明 | 事务 |
 |------|------|------|------|
+| POST | `/api/auth/login` | 登录/注册（JWT） | ✅ |
 | GET | `/api/user/info` | 玩家信息 + 库存 + 地租健康度 | - |
 | GET | `/api/farm/plots` | 所有土地状态 + 打工牛离线结算 + 地租结算 | - |
 | POST | `/api/farm/plant` | 播种 | ✅ |
@@ -111,6 +118,7 @@
 | POST | `/api/market/buy` | 购买（行级锁） | ✅ FOR UPDATE |
 | GET | `/api/market/companies` | NPC 企业列表 + 收购价 | - |
 | POST | `/api/market/sell-to-company` | 向 NPC 企业出售 | ✅ |
+| **GET** | **`/api/leaderboard`** | **双轨制排行榜（农夫榜 + 资本榜）** | **-** |
 
 ---
 
@@ -122,13 +130,19 @@
 播种(消耗1种子) → 等待(10~60min) → 收割(获得3作物) → 市场/企业卖出 → 赚金币
 ```
 
-### 5.2 三种作物
+### 5.2 九种作物 (MVP 4.1)
 
-| 作物 | 生长周期 | 基础收购价 | 基础种子价 | 特性 |
-|------|----------|-----------|-----------|------|
-| 🌾 小麦 | 10 min | 3 🪙 | 2 🪙 | 快周转，低利润 |
-| 🌽 玉米 | 28 min | 6 🪙 | 4 🪙 | 均衡型 |
-| 🍺 啤酒花 | 60 min | 15 🪙 | 10 🪙 | 高利润，高风险 |
+| 品类 | 作物 | 生长周期 | 基础收购价 | 基础种子价 |
+|------|------|----------|-----------|-----------|
+| 🌾 谷物薯类 | 小麦 | 10 min | 3 🪙 | 2 🪙 |
+| 🌾 谷物薯类 | 玉米 | 28 min | 6 🪙 | 4 🪙 |
+| 🌾 谷物薯类 | 土豆 | 20 min | 5 🪙 | 3 🪙 |
+| 🥬 日常蔬菜 | 番茄 | 15 min | 4 🪙 | 3 🪙 |
+| 🥬 日常蔬菜 | 白菜 | 12 min | 3 🪙 | 2 🪙 |
+| 🍎 水果类 | 苹果 | 45 min | 12 🪙 | 8 🪙 |
+| 🍎 水果类 | 葡萄 | 60 min | 18 🪙 | 12 🪙 |
+| 💰 经济作物 | 烟草 | 90 min | 30 🪙 | 20 🪙 |
+| 🌿 珍稀草药 | 灵芝 | 120 min | 50 🪙 | 35 🪙 |
 
 ### 5.3 价格波动引擎
 
@@ -192,6 +206,19 @@
   actualSeedPrice 每 tick 向 target 逼近 1/PHASE_LAG_STEPS
 ```
 
+### 5.8 双轨制排行榜 (MVP 6.0)
+
+```
+动态净值公式:
+  总净值 = 现金(金币) + (地块数 × 1000估值) + ∑(每种作物库存 × 该作物当前企业收购价)
+
+阶级划分:
+  👨‍🌾 农夫新星榜: 已解锁土地 ≤ 6 块
+  🎩 资本巨鳄榜: 已解锁土地 > 6 块
+
+排名: 按净值降序排列，各取前 50 名
+```
+
 ---
 
 ## 六、技术栈
@@ -199,7 +226,7 @@
 | 层 | 技术 | 版本 |
 |----|------|------|
 | 前端框架 | Vue 3 (Composition API) | ^3.5 |
-| 构建 | Vite | ^6 |
+| 构建 | Vite | ^8 |
 | 样式 | TailwindCSS | ^4 |
 | 状态管理 | Pinia | ^2 |
 | 路由 | Vue Router 4 | ^4 |
@@ -207,7 +234,8 @@
 | 后端框架 | Express | ^4 |
 | 运行时 | TypeScript (tsx) | ^5 |
 | ORM | Prisma | ^6 |
-| 数据库 | PostgreSQL | 14+ |
+| 数据库 | SQLite | - |
+| 认证 | JWT (jsonwebtoken) | ^9 |
 
 ---
 
@@ -225,9 +253,32 @@ nongchang/
 │   ├── src/
 │   │   ├── api/             # API 层 (真实 + Mock)
 │   │   ├── components/      # 通用组件
-│   │   ├── stores/          # Pinia 状态管理 (user/farm/market/company)
+│   │   │   ├── AppHeader.vue      # PC 端顶栏
+│   │   │   ├── AppFooter.vue      # 移动端 TabBar
+│   │   │   ├── GoldDisplay.vue    # 金币显示（formatGold）
+│   │   │   ├── InventoryBadge.vue # 库存徽章（formatAmountCompact）
+│   │   │   ├── LeaderboardModal.vue # 排行榜（PC模态框 + 移动端Bottom Sheet）
+│   │   │   └── SellModal.vue      # 卖单弹窗
+│   │   ├── stores/          # Pinia 状态管理
+│   │   │   ├── user.ts            # 玩家信息
+│   │   │   ├── farm.ts            # 农场状态
+│   │   │   ├── market.ts          # 市场深度
+│   │   │   ├── company.ts         # 企业价格
+│   │   │   └── leaderboard.ts     # 排行榜数据
 │   │   ├── views/           # 页面组件
+│   │   │   ├── FarmView.vue       # 农场主页（含资金链仪表盘 + 种子站）
+│   │   │   ├── FarmStats.vue      # 农场统计
+│   │   │   ├── PlotGrid.vue       # 土地网格
+│   │   │   ├── PlotCard.vue       # 单块土地卡片
+│   │   │   ├── MarketView.vue     # 市场页（含企业面板 + 新闻）
+│   │   │   ├── OrderTable.vue     # 盘口深度表
+│   │   │   ├── UserView.vue       # 仓储中心（阶级徽章 + 净值 + 仓储卡片）
+│   │   │   ├── LoginView.vue      # 登录页
+│   │   │   └── NotFoundView.vue   # 404
 │   │   ├── types/           # TypeScript 类型
+│   │   ├── utils/
+│   │   │   └── format.ts          # 全局格式化（🪙/吨/百分比/时间）
+│   │   ├── config/          # 游戏配置
 │   │   ├── router/          # 路由配置
 │   │   └── styles/          # 全局样式
 │   └── ...
@@ -238,9 +289,20 @@ nongchang/
     │   ├── index.ts         # Express 入口
     │   ├── prisma.ts        # PrismaClient 单例
     │   ├── seed.ts          # 种子数据
-    │   ├── config/          # 配置 (crops.ts, companies.ts)
-    │   ├── services/        # 业务服务 (priceEngine.ts)
-    │   ├── middleware/      # 中间件 (upkeep.ts)
-    │   └── routes/          # API 路由 (farm/market/user)
+    │   ├── config/          # 配置
+    │   │   ├── crops.ts           # 作物定义
+    │   │   ├── companies.ts       # 企业定义
+    │   │   └── economy_matrix.ts  # 经济矩阵
+    │   ├── services/
+    │   │   └── priceEngine.ts     # 价格波动引擎
+    │   ├── middleware/
+    │   │   ├── auth.ts            # JWT 鉴权
+    │   │   └── upkeep.ts          # 地租结算
+    │   └── routes/
+    │       ├── auth.ts            # 登录/注册
+    │       ├── farm.ts            # 农场操作
+    │       ├── market.ts          # 市场交易
+    │       ├── user.ts            # 玩家信息
+    │       └── leaderboard.ts     # 排行榜
     └── ...
 ```

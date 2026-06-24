@@ -1,8 +1,8 @@
-# 农场游戏 API 契约文档 (MVP 4.0)
+# 赛博农场 API 契约文档 (MVP 6.0)
 
 > **协议**: RESTful over HTTP  
 > **数据格式**: JSON  
-> **认证方式**: `Authorization: Bearer <token>` (简化版，初期用 user_id 模拟)  
+> **认证方式**: `Authorization: Bearer <token>` (JWT)  
 > **基础路径**: `http://localhost:3000/api`
 
 ---
@@ -11,20 +11,22 @@
 
 1. [通用约定](#通用约定)
 2. [API 列表](#api-列表)
-   - [1. GET /api/user/info](#1-get-apiuserinfo)
-   - [2. GET /api/farm/plots](#2-get-apifarmplots)
-   - [3. POST /api/farm/plant](#3-post-apifarmplant)
-   - [4. POST /api/farm/harvest](#4-post-apifarmharvest)
-   - [5. POST /api/farm/unlock](#5-post-apifarmunlock)
-   - [6. POST /api/farm/buy-cow](#6-post-apifarmbuy-cow)
-   - [7. GET /api/farm/cow-status](#7-get-apifarmcow-status)
-   - [8. POST /api/farm/buy-seed](#8-post-apifarmbuy-seed)
-   - [9. GET /api/farm/seed-price](#9-get-apifarmseed-price)
-   - [10. GET /api/market/orders](#10-get-apimarketorders)
-   - [11. POST /api/market/sell](#11-post-apimarketsell)
-   - [12. POST /api/market/buy](#12-post-apimarketbuy)
-   - [13. GET /api/market/companies](#13-get-apimarketcompanies)
-   - [14. POST /api/market/sell-to-company](#14-post-apimarketsell-to-company)
+   - [1. POST /api/auth/login](#1-post-apiauthlogin)
+   - [2. GET /api/user/info](#2-get-apiuserinfo)
+   - [3. GET /api/farm/plots](#3-get-apifarmplots)
+   - [4. POST /api/farm/plant](#4-post-apifarmplant)
+   - [5. POST /api/farm/harvest](#5-post-apifarmharvest)
+   - [6. POST /api/farm/unlock](#6-post-apifarmunlock)
+   - [7. POST /api/farm/buy-cow](#7-post-apifarmbuy-cow)
+   - [8. GET /api/farm/cow-status](#8-get-apifarmcow-status)
+   - [9. POST /api/farm/buy-seed](#9-post-apifarmbuy-seed)
+   - [10. GET /api/farm/seed-price](#10-get-apifarmseed-price)
+   - [11. GET /api/market/orders](#11-get-apimarketorders)
+   - [12. POST /api/market/sell](#12-post-apimarketsell)
+   - [13. POST /api/market/buy](#13-post-apimarketbuy)
+   - [14. GET /api/market/companies](#14-get-apimarketcompanies)
+   - [15. POST /api/market/sell-to-company](#15-post-apimarketsell-to-company)
+   - [**16. GET /api/leaderboard**](#16-get-apileaderboard)
 3. [错误码规范](#错误码规范)
 
 ---
@@ -51,16 +53,18 @@
 
 ### 时间格式
 
-- 所有时间戳使用 **Unix 秒级时间戳**（`int64`），时区为 UTC+0
+- 所有时间戳使用 **Unix 毫秒级时间戳**（`int64`），时区为 UTC+0
 - 前端展示时转换为本地时间
 
 ### 认证
 
-开发阶段在 Header 中传入 `x-user-id` 模拟玩家身份：
+所有 API（除 `/api/auth/login` 和 `/api/health`）需要在 Header 中传入 JWT Token：
 
 ```
-x-user-id: 1
+Authorization: Bearer <token>
 ```
+
+Token 通过登录接口获取，有效期 7 天。
 
 ---
 
@@ -68,7 +72,53 @@ x-user-id: 1
 
 ---
 
-### 1. GET /api/user/info
+### 1. POST /api/auth/login
+
+登录或自动注册。如果用户名不存在则自动创建新账号。
+
+#### Request Body
+
+```json
+{
+  "username": "demo",
+  "password": "demo123"
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `username` | `string` | 是 | 用户名，3~20 个字符 |
+| `password` | `string` | 是 | 密码，6~32 个字符 |
+
+#### Response `data` 结构
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIs...",
+  "user": {
+    "user_id": 1,
+    "username": "demo",
+    "nickname": "demo"
+  }
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `token` | `string` | JWT Token，有效期 7 天 |
+| `user.user_id` | `int` | 玩家 ID |
+| `user.username` | `string` | 用户名 |
+| `user.nickname` | `string` | 昵称 |
+
+#### 错误场景
+
+| code | message | 说明 |
+|------|---------|------|
+| `9001` | 参数校验失败 | 用户名或密码格式不正确 |
+
+---
+
+### 2. GET /api/user/info
 
 获取玩家个人信息及资产概况。
 
@@ -76,7 +126,7 @@ x-user-id: 1
 
 #### Request
 
-无参数。
+无参数。需携带 `Authorization: Bearer <token>`。
 
 #### Response `data` 结构
 
@@ -89,7 +139,14 @@ x-user-id: 1
     "corn": 0,
     "seed": 10,
     "wheat": 0,
-    "hops": 0
+    "hops": 0,
+    "potato": 0,
+    "tomato": 0,
+    "cabbage": 0,
+    "apple": 0,
+    "grape": 0,
+    "tobacco": 0,
+    "ganoderma": 0
   },
   "avatar_url": null,
   "upkeep": {
@@ -107,10 +164,6 @@ x-user-id: 1
 | `nickname` | `string` | 昵称 |
 | `gold` | `int` | 金币数量 |
 | `items` | `object` | 物品库存，key 为物品名，value 为数量 |
-| `items.corn` | `int` | 玉米库存 |
-| `items.wheat` | `int` | 小麦库存 |
-| `items.hops` | `int` | 啤酒花库存 |
-| `items.seed` | `int` | 种子库存（通用种子） |
 | `avatar_url` | `string\|null` | 头像 URL，后期扩展 |
 | `upkeep` | `object` | 地租健康度信息 (MVP 4.0) |
 | `upkeep.rate` | `int` | 地租费率（🪙/min） |
@@ -120,7 +173,7 @@ x-user-id: 1
 
 ---
 
-### 2. GET /api/farm/plots
+### 3. GET /api/farm/plots
 
 获取玩家所有土地的状态。
 
@@ -128,7 +181,7 @@ x-user-id: 1
 
 #### Request
 
-无参数。
+无参数。需携带 `Authorization: Bearer <token>`。
 
 #### Response `data` 结构
 
@@ -168,18 +221,15 @@ x-user-id: 1
 | `plot_id` | `int` | 土地编号 (1~N) |
 | `status` | `string` | `locked` 锁定 \| `idle` 空闲 \| `growing` 生长中 \| `ready` 已成熟 |
 | `planted_at` | `int\|null` | 播种时的 Unix 时间戳，空闲/锁定时为 `null` |
-| `crop` | `string\|null` | 作物类型：`wheat` \| `corn` \| `hops` |
+| `crop` | `string\|null` | 作物类型 |
 | `remaining_seconds` | `int` | 剩余生长秒数，`idle`/`ready`/`locked` 时为 `0` |
-| `unlock_price` | `int\|null` | 解锁所需金币，`locked` 状态时有效，其他状态为 `null` |
+| `unlock_price` | `int\|null` | 解锁所需金币，`locked` 状态时有效 |
 
-> **生长周期**：
-> - 🌾 小麦: 10 min = 600 秒
-> - 🌽 玉米: 28 min = 1680 秒
-> - 🍺 啤酒花: 60 min = 3600 秒
+> **生长周期**：小麦 10min, 玉米 28min, 土豆 20min, 番茄 15min, 白菜 12min, 苹果 45min, 葡萄 60min, 烟草 90min, 灵芝 120min
 
 ---
 
-### 3. POST /api/farm/plant
+### 4. POST /api/farm/plant
 
 对指定土地进行播种。
 
@@ -195,7 +245,7 @@ x-user-id: 1
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | `plot_id` | `int` | 是 | 土地编号 |
-| `crop` | `string` | 是 | 作物类型：`wheat` \| `corn` \| `hops` |
+| `crop` | `string` | 是 | 作物类型 |
 
 #### Response `data` 结构
 
@@ -214,11 +264,11 @@ x-user-id: 1
 |------|---------|------|
 | `1001` | 土地已被占用 | 该土地 `status` 不是 `idle` |
 | `1002` | 种子不足 | 玩家 `seed` 库存 < 1 |
-| `1003` | 不支持的作物 | `crop` 不是 `wheat`/`corn`/`hops` |
+| `1003` | 不支持的作物 | `crop` 无效 |
 
 ---
 
-### 4. POST /api/farm/harvest
+### 5. POST /api/farm/harvest
 
 收割指定土地上已成熟的作物。
 
@@ -264,7 +314,7 @@ x-user-id: 1
 
 ---
 
-### 5. POST /api/farm/unlock
+### 6. POST /api/farm/unlock
 
 解锁一块被锁定的土地。
 
@@ -304,7 +354,7 @@ x-user-id: 1
 
 ---
 
-### 6. POST /api/farm/buy-cow
+### 7. POST /api/farm/buy-cow
 
 购买一头打工牛（一次性消费 5000 金币）。
 
@@ -330,7 +380,7 @@ x-user-id: 1
 
 ---
 
-### 7. GET /api/farm/cow-status
+### 8. GET /api/farm/cow-status
 
 查询打工牛状态。
 
@@ -356,7 +406,7 @@ x-user-id: 1
 
 ---
 
-### 8. POST /api/farm/buy-seed
+### 9. POST /api/farm/buy-seed
 
 批量购买种子。
 
@@ -403,7 +453,7 @@ x-user-id: 1
 
 ---
 
-### 9. GET /api/farm/seed-price
+### 10. GET /api/farm/seed-price
 
 查询当前种子价格（动态定价）。
 
@@ -433,13 +483,15 @@ x-user-id: 1
 
 ---
 
-### 10. GET /api/market/orders
+### 11. GET /api/market/orders
 
-获取当前市场深度（聚合挂单列表）。
+获取当前市场深度（聚合挂单列表）。支持按作物过滤。
 
 #### Request
 
-无参数。
+| 参数 | 位置 | 类型 | 必填 | 说明 |
+|------|------|------|------|------|
+| `item_id` | query | `string` | 否 | 作物类型，不传则返回所有 |
 
 #### Response `data` 结构
 
@@ -449,22 +501,16 @@ x-user-id: 1
     {
       "unit_price": 5,
       "total_amount": 30,
-      "order_count": 3
-    },
-    {
-      "unit_price": 6,
-      "total_amount": 15,
-      "order_count": 2
+      "order_ids": [1, 2, 3]
     }
   ],
+  "floor_price": 5,
   "my_orders": [
     {
       "id": 1,
-      "item": "corn",
-      "amount": 10,
       "unit_price": 5,
+      "amount": 10,
       "total_price": 50,
-      "status": "active",
       "created_at": 1719200000
     }
   ]
@@ -476,21 +522,13 @@ x-user-id: 1
 | `depth[]` | `array` | 按单价聚合的深度列表 |
 | `depth[].unit_price` | `int` | 单价（金币/个） |
 | `depth[].total_amount` | `int` | 该价格档位的总数量 |
-| `depth[].order_count` | `int` | 该价格档位的订单数 |
+| `depth[].order_ids` | `int[]` | 该价格档位的订单 ID 列表 |
+| `floor_price` | `int\|null` | 最低挂单价（地板价） |
 | `my_orders[]` | `array` | 当前玩家的挂单列表 |
-| `my_orders[].id` | `int` | 订单 ID |
-| `my_orders[].item` | `string` | 物品类型 |
-| `my_orders[].amount` | `int` | 数量 |
-| `my_orders[].unit_price` | `int` | 单价 |
-| `my_orders[].total_price` | `int` | 总价 |
-| `my_orders[].status` | `string` | 订单状态 |
-| `my_orders[].created_at` | `int` | 发布时间戳 |
-
-> **注意**：只返回 `status = 'active'` 的订单。`depth` 按 `unit_price` 升序排列，最低价（地板价）用红色边框高亮。
 
 ---
 
-### 11. POST /api/market/sell
+### 12. POST /api/market/sell
 
 发布卖单，将物品挂到市场上出售。
 
@@ -506,7 +544,7 @@ x-user-id: 1
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `item` | `string` | 是 | 物品类型：`corn` \| `wheat` \| `hops` |
+| `item` | `string` | 是 | 物品类型 |
 | `amount` | `int` | 是 | 数量，必须 > 0 |
 | `unit_price` | `int` | 是 | 单价（金币/个），必须 > 0 |
 
@@ -528,7 +566,7 @@ x-user-id: 1
 
 ---
 
-### 12. POST /api/market/buy
+### 13. POST /api/market/buy
 
 购买市场上某个活跃订单的物品。
 
@@ -570,7 +608,7 @@ x-user-id: 1
 
 ---
 
-### 13. GET /api/market/companies
+### 14. GET /api/market/companies
 
 获取 NPC 企业列表及其当前收购价。
 
@@ -581,56 +619,35 @@ x-user-id: 1
 #### Response `data` 结构
 
 ```json
-{
-  "companies": [
-    {
-      "id": "bakery",
-      "name": "🥖 面包坊",
-      "description": "大量收购小麦，制作面包",
-      "buy_item": "wheat",
-      "base_price": 3,
-      "current_price": 4,
-      "price_trend": "up",
-      "icon": "🥖"
-    },
-    {
-      "id": "power_plant",
-      "name": "⚡ 生物发电厂",
-      "description": "收购玉米用于生物质发电",
-      "buy_item": "corn",
-      "base_price": 6,
-      "current_price": 5,
-      "price_trend": "down",
-      "icon": "⚡"
-    },
-    {
-      "id": "brewery",
-      "name": "🍺 精酿酒厂",
-      "description": "高价收购啤酒花，酿造精酿",
-      "buy_item": "hops",
-      "base_price": 15,
-      "current_price": 18,
-      "price_trend": "up",
-      "icon": "🍺"
-    }
-  ]
-}
+[
+  {
+    "company_id": "flour_mill",
+    "name": "🏭 面粉厂",
+    "emoji": "🏭",
+    "description": "收购小麦，磨制面粉",
+    "buy_item": "wheat",
+    "buy_item_name": "小麦",
+    "buy_item_emoji": "🌾",
+    "buy_price": 4,
+    "base_price": 3,
+    "event": null
+  }
+]
 ```
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `id` | `string` | 企业标识 |
+| `company_id` | `string` | 企业标识 |
 | `name` | `string` | 企业名称 |
-| `description` | `string` | 企业描述 |
+| `emoji` | `string` | 企业图标 |
 | `buy_item` | `string` | 收购的作物类型 |
+| `buy_price` | `int` | 当前收购价（动态波动） |
 | `base_price` | `int` | 基础收购价 |
-| `current_price` | `int` | 当前收购价（动态波动） |
-| `price_trend` | `string` | 价格趋势：`up` \| `down` \| `stable` |
-| `icon` | `string` | 企业图标 |
+| `event` | `object\|null` | 宏观事件信息 |
 
 ---
 
-### 14. POST /api/market/sell-to-company
+### 15. POST /api/market/sell-to-company
 
 向 NPC 企业直接出售作物（B2B 模式，系统保证成交）。
 
@@ -638,37 +655,37 @@ x-user-id: 1
 
 ```json
 {
-  "company_id": "bakery",
+  "item": "wheat",
   "amount": 10
 }
 ```
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `company_id` | `string` | 是 | 企业 ID |
+| `item` | `string` | 是 | 作物类型 |
 | `amount` | `int` | 是 | 出售数量，必须 > 0 |
 
 #### Response `data` 结构
 
 ```json
 {
-  "company_id": "bakery",
   "item": "wheat",
   "amount": 10,
   "unit_price": 4,
   "total_revenue": 40,
-  "gold_remaining": 140
+  "company_id": "flour_mill",
+  "company_name": "面粉厂"
 }
 ```
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `company_id` | `string` | 企业 ID |
 | `item` | `string` | 出售的作物类型 |
 | `amount` | `int` | 出售数量 |
 | `unit_price` | `int` | 成交单价 |
 | `total_revenue` | `int` | 总收入 |
-| `gold_remaining` | `int` | 剩余金币 |
+| `company_id` | `string` | 企业 ID |
+| `company_name` | `string` | 企业名称 |
 
 #### 错误场景
 
@@ -677,6 +694,71 @@ x-user-id: 1
 | `3001` | 企业不存在 | `company_id` 无效 |
 | `3002` | 该企业不收购此作物 | 物品类型不匹配 |
 | `3003` | 库存不足 | 玩家该物品库存 < `amount` |
+
+---
+
+### 16. GET /api/leaderboard
+
+获取双轨制净值排行榜。
+
+> **MVP 6.0 新增**  
+> 动态净值公式：`总净值 = 现金 + (地块数 × 1000) + ∑(每种作物库存 × 该作物当前企业收购价)`  
+> 阶级划分：农夫新星榜 (≤6块地) vs 资本巨鳄榜 (>6块地)
+
+#### Request
+
+无参数。需携带 `Authorization: Bearer <token>`。
+
+#### Response `data` 结构
+
+```json
+{
+  "farmers": [
+    {
+      "rank": 1,
+      "user_id": 3,
+      "nickname": "商人大李",
+      "gold": 200,
+      "unlocked_plots": 6,
+      "land_value": 6000,
+      "inventory_value": 923,
+      "net_worth": 7123
+    }
+  ],
+  "capitalists": [
+    {
+      "rank": 1,
+      "user_id": 10,
+      "nickname": "资本大鳄",
+      "gold": 50000,
+      "unlocked_plots": 12,
+      "land_value": 12000,
+      "inventory_value": 15000,
+      "net_worth": 77000
+    }
+  ],
+  "updated_at": 1719200000000
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `farmers[]` | `array` | 农夫新星榜（≤6块地），按净值降序，前 50 名 |
+| `capitalists[]` | `array` | 资本巨鳄榜（>6块地），按净值降序，前 50 名 |
+| `updated_at` | `int` | 计算时间戳（毫秒） |
+
+**每个条目字段：**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `rank` | `int` | 排名（1-based） |
+| `user_id` | `int` | 玩家 ID |
+| `nickname` | `string` | 昵称 |
+| `gold` | `int` | 现金 |
+| `unlocked_plots` | `int` | 已解锁土地数 |
+| `land_value` | `int` | 土地估值（地块数 × 1000） |
+| `inventory_value` | `int` | 库存估值（∑ 库存 × 当前收购价） |
+| `net_worth` | `int` | 总净值 |
 
 ---
 
@@ -693,8 +775,9 @@ x-user-id: 1
 | `2000~2099` | 市场-挂单 | 发布卖单相关错误 |
 | `2100~2199` | 市场-购买 | 购买相关错误 |
 | `3000~3099` | 市场-企业 | NPC 企业交易相关错误 |
+| `4000~4099` | 认证 | JWT 认证相关错误 |
 | `5000~5099` | 地租-清算 | 地租结算/破产清算相关错误 |
-| `9000~9999` | 通用 | 系统级错误（认证失败、参数校验等） |
+| `9000~9999` | 通用 | 系统级错误（参数校验等） |
 
 ### 通用错误
 
@@ -712,7 +795,7 @@ x-user-id: 1
 
 ```json
 {
-  "code": 9002,
-  "message": "未授权，请提供有效的用户身份"
+  "code": 4002,
+  "message": "凭证已过期或无效，请重新登录"
 }
 ```
