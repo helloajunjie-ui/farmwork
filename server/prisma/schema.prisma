@@ -1,0 +1,118 @@
+// Prisma Schema — 赛博农场
+// 数据源：SQLite（开发/演示用，零配置启动）
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ===== 玩家表 =====
+model User {
+  userId       Int       @id @default(autoincrement()) @map("user_id")
+  username     String    @unique                                    // 登录名（唯一）
+  passwordHash String    @map("password_hash")                      // bcrypt 哈希
+  nickname     String    @default("")
+  gold         Int       @default(100)
+  upkeepRate   Float     @default(0) @map("upkeep_rate")            // 当前每分钟地租
+  lastUpkeepAt DateTime  @default(now()) @map("last_upkeep_at")     // 上次地租结算时间
+  isBankrupt   Boolean   @default(false) @map("is_bankrupt")        // 是否处于破产状态
+  avatarUrl    String?   @map("avatar_url")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  inventory  Inventory[]
+  plots      Plot[]
+  sellOrders MarketOrder[] @relation("Seller")
+  cow        Cow?
+
+  @@map("users")
+}
+
+// ===== 物品库存表 =====
+model Inventory {
+  userId Int    @map("user_id")
+  item   String
+  amount Int    @default(0)
+
+  user User @relation(fields: [userId], references: [userId])
+
+  @@id([userId, item])
+  @@map("inventory")
+}
+
+// ===== 土地表 =====
+// status: 'locked' (未解锁) | 'idle' (空闲) | 'growing' (生长中) | 'ready' (已成熟)
+model Plot {
+  plotId    Int       @map("plot_id")
+  userId    Int       @map("user_id")
+  status    String    @default("locked")
+  plantedAt DateTime? @map("planted_at")
+  crop      String?
+
+  user User @relation(fields: [userId], references: [userId])
+
+  @@id([plotId, userId])
+  @@index([userId])
+  @@map("plots")
+}
+
+// ===== 打工牛表 =====
+// 拥有打工牛的玩家，离线时自动循环收割+播种
+model Cow {
+  userId       Int       @id @map("user_id")
+  active       Boolean   @default(true)   // 是否启用
+  lastSyncAt   DateTime  @default(now()) @map("last_sync_at") // 上次同步时间
+
+  user User @relation(fields: [userId], references: [userId])
+
+  @@map("cows")
+}
+
+// ===== 市场订单表 =====
+model MarketOrder {
+  id         Int      @id @default(autoincrement())
+  sellerId   Int      @map("seller_id")
+  item       String
+  amount     Int
+  totalPrice Int      @map("total_price")
+  status     String   @default("active") // active | sold | cancelled
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  seller User @relation("Seller", fields: [sellerId], references: [userId])
+
+  @@index([status])
+  @@index([sellerId])
+  @@map("market_orders")
+}
+
+// ===== 宏观经济环境表 =====
+// 存储当前各企业的实时收购价
+model MarketEnvironment {
+  id         Int      @id @default(autoincrement())
+  companyId  String   @map("company_id")
+  buyPrice   Int      @map("buy_price")        // 当前收购价（金币）
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([companyId])
+  @@map("market_environment")
+}
+
+// ===== 宏观事件表 =====
+// 限时事件，影响特定作物的价格（如 "啤酒节" 啤酒花 +50%）
+model MarketEvent {
+  id         Int      @id @default(autoincrement())
+  eventType  String   @map("event_type")       // 事件类型标识
+  title      String                            // 事件标题（用于新闻）
+  cropId     String   @map("crop_id")          // 影响作物
+  multiplier Float    @default(1.5)            // 价格倍率（1.5 = +50%）
+  startedAt  DateTime @default(now()) @map("started_at")
+  expiresAt  DateTime @map("expires_at")       // 到期时间
+
+  @@index([expiresAt])
+  @@map("market_events")
+}

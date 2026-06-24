@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+/* ===== 深色主题基调 ===== */
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-slate-900 text-slate-100 antialiased;
+  font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* ===== 滚动条美化 ===== */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-slate-900;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-600 rounded-full;
+}
+
+/* ===== 骨架屏脉冲动画 ===== */
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.animate-pulse-soft {
+  animation: pulse-soft 2s ease-in-out infinite;
+}
+
+/* ===== 数字跳动 ===== */
+@keyframes count-up {
+  0% { transform: translateY(4px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+.animate-count-up {
+  animation: count-up 0.3s ease-out;
+}
+
+/* ===== MVP 4.0: 破产清算动画 ===== */
+@keyframes bankrupt-shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+.animate-bankrupt-shake {
+  animation: bankrupt-shake 0.8s ease-in-out;
+}
+
+@keyframes fade-in {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+/* ===== MVP 5.2: Bottom Sheet 滑入动画 ===== */
+@keyframes slide-up {
+  0% { transform: translateY(100%); }
+  100% { transform: translateY(0); }
+}
+@keyframes slide-down {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(100%); }
+}
+.animate-slide-up {
+  animation: slide-up 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.animate-slide-down {
+  animation: slide-down 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* ===== MVP 5.2: 粘性底部操作栏 ===== */
+.sticky-action-bar {
+  @apply sticky bottom-0 bg-slate-800/95 backdrop-blur-md border-t border-slate-700/50 px-4 py-3;
+}
+
+/* ===== MVP 5.2: 移动端安全区域适配 ===== */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
