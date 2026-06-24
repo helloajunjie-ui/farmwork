@@ -78,6 +78,19 @@ body {
   @apply sticky bottom-0 bg-slate-800/95 backdrop-blur-md border-t border-slate-700/50 px-4 py-3;
 }
 
+/* ===== MVP 8.0: 红色呼吸光晕（信箱未读） ===== */
+@keyframes breathe {
+  0%, 100% {
+    box-shadow: 0 0 4px 2px rgba(239, 68, 68, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 12px 6px rgba(239, 68, 68, 0.6);
+  }
+}
+.animate-breathe {
+  animation: breathe 2s ease-in-out infinite;
+}
+
 /* ===== MVP 5.2: 移动端安全区域适配 ===== */
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);

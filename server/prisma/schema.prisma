@@ -29,6 +29,8 @@ model User {
   plots      Plot[]
   sellOrders MarketOrder[] @relation("Seller")
   cow        Cow?
+  sentMail     Mailbox[] @relation("SentMails")
+  receivedMail Mailbox[] @relation("ReceivedMails")
 
   @@map("users")
 }
@@ -116,4 +118,26 @@ model MarketEvent {
 
   @@index([expiresAt])
   @@map("market_events")
+}
+
+// ===== MVP 8.0: 信箱 / 场外暗池 =====
+model Mailbox {
+  id          Int      @id @default(autoincrement())
+  senderId    Int      @map("sender_id")
+  receiverId  Int      @map("receiver_id")
+  content     String   @default("")              // 留言文本
+  // OTC 契约字段（可选，全为 null 则为纯留言）
+  offerItem   String?  @map("offer_item")         // 想买的物品 ID
+  offerAmount Int?     @map("offer_amount")       // 想买的数量
+  offerPrice  Int?     @map("offer_price")        // 一口价总价（金币）
+  status      String   @default("unread")         // unread | read | accepted | declined
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  sender   User @relation("SentMails", fields: [senderId], references: [userId])
+  receiver User @relation("ReceivedMails", fields: [receiverId], references: [userId])
+
+  @@index([receiverId, status])
+  @@index([senderId])
+  @@map("mailbox")
 }

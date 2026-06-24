@@ -160,6 +160,61 @@ export async function sell(
   await http.post('/market/sell', { item, amount, unit_price: unitPrice })
 }
 
+// ===== MVP 8.0: 信箱 & 互访 =====
+import type {
+  MailboxMessage,
+  SentMailboxMessage,
+  UnreadCountData,
+  SendMailRequest,
+  SendMailResponse,
+  ReadonlyFarmData,
+} from '../types'
+
+/** 获取目标玩家的只读农场数据 */
+export async function fetchReadonlyFarm(username: string): Promise<ReadonlyFarmData> {
+  const res = await http.get<ApiResponse<ReadonlyFarmData>>(`/social/farm/${username}`)
+  return res.data.data
+}
+
+/** 获取收件箱 */
+export async function fetchInbox(): Promise<MailboxMessage[]> {
+  const res = await http.get<ApiResponse<MailboxMessage[]>>('/social/mailbox')
+  return res.data.data
+}
+
+/** 获取发件箱 */
+export async function fetchSentBox(): Promise<SentMailboxMessage[]> {
+  const res = await http.get<ApiResponse<SentMailboxMessage[]>>('/social/mailbox/sent')
+  return res.data.data
+}
+
+/** 获取未读邮件数量 */
+export async function fetchUnreadCount(): Promise<UnreadCountData> {
+  const res = await http.get<ApiResponse<UnreadCountData>>('/social/mailbox/unread-count')
+  return res.data.data
+}
+
+/** 发送信件 */
+export async function sendMail(req: SendMailRequest): Promise<SendMailResponse> {
+  const res = await http.post<ApiResponse<SendMailResponse>>('/social/mailbox/send', req)
+  return res.data.data
+}
+
+/** 标记为已读 */
+export async function markMailRead(id: number): Promise<void> {
+  await http.post(`/social/mailbox/${id}/read`)
+}
+
+/** 接受 OTC 契约 */
+export async function acceptOffer(id: number): Promise<void> {
+  await http.post(`/social/mailbox/${id}/accept`)
+}
+
+/** 拒绝 OTC 契约 */
+export async function declineOffer(id: number): Promise<void> {
+  await http.post(`/social/mailbox/${id}/decline`)
+}
+
 // ===== MVP 7.0: 社交名片 & 房产 =====
 import type { ProfileData, UpgradeHouseResponse } from '../types'
 

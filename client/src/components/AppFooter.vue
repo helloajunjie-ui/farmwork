@@ -1,7 +1,20 @@
 <script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { useMailboxStore } from '../stores/mailbox'
+import MailboxModal from './MailboxModal.vue'
 
 const route = useRoute()
+const mailboxStore = useMailboxStore()
+const showMailbox = ref(false)
+
+onMounted(() => {
+  mailboxStore.startPolling()
+})
+
+onUnmounted(() => {
+  mailboxStore.stopPolling()
+})
 </script>
 
 <template>
@@ -24,6 +37,22 @@ const route = useRoute()
         <span class="text-lg">📈</span>
         <span class="text-[10px] font-medium">市场</span>
       </router-link>
+      <!-- MVP 8.0: 信箱入口（红色呼吸光晕） -->
+      <button
+        class="flex flex-col items-center gap-0.5 px-6 py-2 rounded-lg transition-all duration-200 relative"
+        :class="showMailbox ? 'text-rose-400 bg-rose-400/10' : 'text-slate-400 hover:text-slate-200'"
+        @click="showMailbox = true"
+      >
+        <span class="text-lg relative">
+          📮
+          <!-- 未读红点 -->
+          <span
+            v-if="mailboxStore.unreadCount > 0"
+            class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 animate-breathe"
+          />
+        </span>
+        <span class="text-[10px] font-medium">信箱</span>
+      </button>
       <router-link
         to="/user"
         class="flex flex-col items-center gap-0.5 px-6 py-2 rounded-lg transition-all duration-200"
@@ -34,4 +63,11 @@ const route = useRoute()
       </router-link>
     </nav>
   </footer>
+
+  <!-- MVP 8.0: 信箱模态框 -->
+  <MailboxModal
+    v-if="showMailbox"
+    :show="showMailbox"
+    @close="showMailbox = false"
+  />
 </template>

@@ -11,6 +11,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   close: []
+  visitFarm: [username: string]
 }>()
 
 const profile = ref<ProfileData | null>(null)
@@ -127,13 +128,21 @@ function getGlowStyle(tier: number): string {
           </div>
         </div>
 
-        <!-- 关闭按钮 -->
-        <button
-          class="w-full py-3 text-sm text-white/50 hover:text-white/80 transition-colors bg-black/10 hover:bg-black/20 backdrop-blur-sm"
-          @click="emit('close')"
-        >
-          关闭
-        </button>
+        <!-- 操作按钮组 -->
+        <div class="grid grid-cols-2 gap-px bg-black/10">
+          <button
+            class="py-3 text-sm text-white/50 hover:text-white/80 transition-colors bg-black/10 hover:bg-black/20 backdrop-blur-sm"
+            @click="emit('close')"
+          >
+            关闭
+          </button>
+          <button
+            class="py-3 text-sm text-cyan-400/70 hover:text-cyan-300 transition-colors bg-black/10 hover:bg-black/20 backdrop-blur-sm font-medium"
+            @click="emit('visitFarm', profile.nickname)"
+          >
+            🕵️ 潜入他的农场
+          </button>
+        </div>
       </div>
 
       <!-- 加载状态 -->

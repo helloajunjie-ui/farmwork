@@ -3,6 +3,8 @@ import { ref, onMounted } from 'vue'
 import { useLeaderboardStore } from '../stores/leaderboard'
 import { formatGoldCompact } from '../utils/format'
 import ProfileCardModal from './ProfileCardModal.vue'
+import ReadonlyFarmModal from './ReadonlyFarmModal.vue'
+import MailComposeModal from './MailComposeModal.vue'
 
 defineProps<{ show: boolean }>()
 const emit = defineEmits<{ close: [] }>()
@@ -14,9 +16,27 @@ const activeTab = ref<'farmers' | 'capitalists'>('farmers')
 const selectedUsername = ref<string | null>(null)
 const showProfile = ref(false)
 
+// MVP 8.0: 窥探 + 投递
+const showReadonlyFarm = ref(false)
+const readonlyFarmUsername = ref('')
+const showComposeMail = ref(false)
+const composeTarget = ref('')
+
 function openProfile(username: string) {
   selectedUsername.value = username
   showProfile.value = true
+}
+
+function handleVisitFarm(username: string) {
+  showProfile.value = false
+  readonlyFarmUsername.value = username
+  showReadonlyFarm.value = true
+}
+
+function handleSendMail(username: string) {
+  showReadonlyFarm.value = false
+  composeTarget.value = username
+  showComposeMail.value = true
 }
 
 onMounted(() => {
@@ -282,6 +302,22 @@ function getRankEmoji(rank: number): string {
       :show="showProfile"
       :username="selectedUsername"
       @close="showProfile = false"
+      @visit-farm="handleVisitFarm"
+    />
+
+    <!-- MVP 8.0: 窥探农场 -->
+    <ReadonlyFarmModal
+      :show="showReadonlyFarm"
+      :username="readonlyFarmUsername"
+      @close="showReadonlyFarm = false"
+      @send-mail="handleSendMail"
+    />
+
+    <!-- MVP 8.0: 投递密函 -->
+    <MailComposeModal
+      :show="showComposeMail"
+      :preset-receiver="composeTarget"
+      @close="showComposeMail = false"
     />
   </Teleport>
 </template>

@@ -6,6 +6,9 @@ import { ALL_CROPS } from '../config/crops'
 import { formatGold, formatAmount, formatGoldCompact } from '../utils/format'
 import { getHousingTier, getNextHousingTier } from '../config/housing'
 import { upgradeHouse } from '../api'
+import ReadonlyFarmModal from '../components/ReadonlyFarmModal.vue'
+import MailComposeModal from '../components/MailComposeModal.vue'
+import MailboxModal from '../components/MailboxModal.vue'
 
 const userStore = useUserStore()
 const router = useRouter()
@@ -13,6 +16,13 @@ const loggingOut = ref(false)
 const upgrading = ref(false)
 const upgradeMsg = ref('')
 const upgradeError = ref('')
+
+// MVP 8.0: 信箱 + 窥探状态
+const showMailbox = ref(false)
+const showReadonlyFarm = ref(false)
+const readonlyFarmUsername = ref('')
+const showComposeMail = ref(false)
+const composeTarget = ref('')
 
 // 当前房产信息
 const currentHousing = computed(() => getHousingTier(userStore.housingTier ?? 1))
@@ -90,8 +100,16 @@ async function handleUpgrade() {
 
 <template>
   <div class="space-y-4 pb-24 lg:pb-0">
-    <!-- 页面标题 -->
-    <h2 class="text-lg font-bold text-slate-100">🏢 仓储中心</h2>
+    <!-- 页面标题 + 信箱入口 -->
+    <div class="flex items-center justify-between">
+      <h2 class="text-lg font-bold text-slate-100">🏢 仓储中心</h2>
+      <button
+        class="text-sm text-rose-400/70 hover:text-rose-300 transition-colors flex items-center gap-1"
+        @click="showMailbox = true"
+      >
+        📮 信箱
+      </button>
+    </div>
 
     <!-- 玩家信息 + 阶级徽章 -->
     <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
@@ -249,4 +267,25 @@ async function handleUpgrade() {
       {{ loggingOut ? '⏳ 断开连接...' : '🚪 断开连接' }}
     </button>
   </div>
+
+  <!-- MVP 8.0: 信箱模态框 -->
+  <MailboxModal
+    :show="showMailbox"
+    @close="showMailbox = false"
+  />
+
+  <!-- MVP 8.0: 窥探农场模态框 -->
+  <ReadonlyFarmModal
+    :show="showReadonlyFarm"
+    :username="readonlyFarmUsername"
+    @close="showReadonlyFarm = false"
+    @send-mail="(username: string) => { showReadonlyFarm = false; composeTarget = username; showComposeMail = true }"
+  />
+
+  <!-- MVP 8.0: 投递密函模态框 -->
+  <MailComposeModal
+    :show="showComposeMail"
+    :preset-receiver="composeTarget"
+    @close="showComposeMail = false"
+  />
 </template>

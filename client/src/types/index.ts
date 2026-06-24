@@ -241,3 +241,67 @@ export interface LeaderboardData {
   capitalists: LeaderboardEntry[]
   updated_at: number
 }
+
+// ===== MVP 8.0: 信箱 / 场外暗池 =====
+export interface MailboxMessage {
+  id: number
+  sender_id: number
+  sender_name: string
+  content: string
+  offer_item: string | null
+  offer_amount: number | null
+  offer_price: number | null
+  status: 'unread' | 'read' | 'accepted' | 'declined'
+  created_at: number
+}
+
+export interface SentMailboxMessage {
+  id: number
+  receiver_id: number
+  receiver_name: string
+  content: string
+  offer_item: string | null
+  offer_amount: number | null
+  offer_price: number | null
+  status: 'unread' | 'read' | 'accepted' | 'declined'
+  created_at: number
+}
+
+export interface UnreadCountData {
+  count: number
+}
+
+export interface SendMailRequest {
+  receiver_username: string
+  content: string
+  offer_item?: string
+  offer_amount?: number
+  offer_price?: number
+}
+
+export interface SendMailResponse {
+  id: number
+}
+
+// ===== MVP 8.0: 只读农场数据 =====
+export interface ReadonlyPlot {
+  plot_id: number
+  status: string
+  crop: string | null
+  remaining_seconds: number
+  crop_name: string | null
+  crop_emoji: string | null
+}
+
+export interface ReadonlyFarmData {
+  user_id: number
+  nickname: string
+  housing: {
+    tier: number
+    name: string
+    emoji: string
+    badge: string
+    color: string
+  }
+  plots: ReadonlyPlot[]
+}
