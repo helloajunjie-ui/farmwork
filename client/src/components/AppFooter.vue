@@ -1,20 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { useMailboxStore } from '../stores/mailbox'
 import MailboxModal from './MailboxModal.vue'
 
 const route = useRoute()
-const mailboxStore = useMailboxStore()
 const showMailbox = ref(false)
-
-onMounted(() => {
-  mailboxStore.startPolling()
-})
-
-onUnmounted(() => {
-  mailboxStore.stopPolling()
-})
 </script>
 
 <template>

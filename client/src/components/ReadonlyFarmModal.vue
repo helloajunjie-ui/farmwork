@@ -61,7 +61,6 @@ function getStatusLabel(status: string): string {
       <div
         v-if="!loading && farm"
         class="relative w-full max-w-md rounded-2xl border border-slate-600/50 bg-slate-800/95 backdrop-blur-xl overflow-hidden transition-all duration-500 animate-fade-in"
-        style="filter: hue-rotate(200deg) saturate(0.6) brightness(0.9);"
       >
         <!-- 顶部：目标玩家信息 -->
         <div class="p-5 border-b border-slate-700/50">
@@ -79,7 +78,7 @@ function getStatusLabel(status: string): string {
         <!-- 地块网格（只读） -->
         <div class="p-5">
           <h4 class="text-xs font-medium text-slate-500 mb-3">🏞️ 地块状态</h4>
-          <div class="grid grid-cols-3 gap-2">
+          <div class="grid grid-cols-3 gap-2" style="filter: hue-rotate(200deg) saturate(0.6) brightness(0.9);">
             <div
               v-for="plot in farm.plots"
               :key="plot.plot_id"

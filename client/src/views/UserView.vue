@@ -195,7 +195,7 @@ async function handleUpgrade() {
           :disabled="upgrading || userStore.gold < nextHousing.cost"
           @click="handleUpgrade"
         >
-          {{ upgrading ? '⏳ 升级中...' : `耗费 ${formatGoldCompact(nextHousing.cost)} 🪙 升级` }}
+          {{ upgrading ? '⏳ 升级中...' : `花费 ${formatGoldCompact(nextHousing.cost)} 🪙 升至下一阶` }}
         </button>
 
         <!-- 升级反馈 -->

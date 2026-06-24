@@ -8,6 +8,7 @@ import type { MailboxMessage } from '../types'
 const props = defineProps<{
   show: boolean
   mail: MailboxMessage | null
+  isSent?: boolean  // 是否为发件箱视角
 }>()
 
 const emit = defineEmits<{
@@ -111,11 +112,11 @@ function formatTime(ts: number): string {
           <div class="text-[10px] text-amber-500/40 mt-1 font-serif">火漆封印</div>
         </div>
 
-        <!-- 发件人信息 -->
+        <!-- 发件人/收件人信息 -->
         <div class="px-6 py-3 text-center border-b border-amber-700/10">
-          <div class="text-xs text-amber-300/50 font-serif">致</div>
+          <div class="text-xs text-amber-300/50 font-serif">{{ isSent ? '致' : '来自' }}</div>
           <div class="text-base font-bold text-amber-100 font-serif mt-0.5">
-            {{ mail.sender_name }}
+            {{ isSent ? (mail as any).receiver_name : mail.sender_name }}
           </div>
           <div class="text-[10px] text-slate-500 mt-1 font-mono">{{ formatTime(mail.created_at) }}</div>
           <div class="mt-1">

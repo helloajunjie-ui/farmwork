@@ -1,4 +1,4 @@
-# 赛博农场 API 契约文档 (MVP 6.0)
+# 赛博农场 API 契约文档 (MVP 8.1)
 
 > **协议**: RESTful over HTTP  
 > **数据格式**: JSON  
@@ -26,7 +26,17 @@
    - [13. POST /api/market/buy](#13-post-apimarketbuy)
    - [14. GET /api/market/companies](#14-get-apimarketcompanies)
    - [15. POST /api/market/sell-to-company](#15-post-apimarketsell-to-company)
-   - [**16. GET /api/leaderboard**](#16-get-apileaderboard)
+   - [16. GET /api/leaderboard](#16-get-apileaderboard)
+   - [**17. GET /api/social/profile/:username**](#17-get-apisocialprofileusername)
+   - [**18. POST /api/social/upgrade-house**](#18-post-apisocialupgrade-house)
+   - [**19. GET /api/social/farm/:username**](#19-get-apisocialfarmusername)
+   - [**20. GET /api/social/mailbox**](#20-get-apisocialmailbox)
+   - [**21. GET /api/social/mailbox/sent**](#21-get-apisocialmailboxsent)
+   - [**22. GET /api/social/mailbox/unread-count**](#22-get-apisocialmailboxunread-count)
+   - [**23. POST /api/social/mailbox/send**](#23-post-apisocialmailboxsend)
+   - [**24. POST /api/social/mailbox/:id/read**](#24-post-apisocialmailboxidread)
+   - [**25. POST /api/social/mailbox/:id/accept**](#25-post-apisocialmailboxidaccept)
+   - [**26. POST /api/social/mailbox/:id/decline**](#26-post-apisocialmailboxiddecline)
 3. [错误码规范](#错误码规范)
 
 ---
@@ -149,6 +159,7 @@ Token 通过登录接口获取，有效期 7 天。
     "ganoderma": 0
   },
   "avatar_url": null,
+  "housing_tier": 1,
   "upkeep": {
     "rate": 0,
     "minutes_remaining": 999,
@@ -165,6 +176,7 @@ Token 通过登录接口获取，有效期 7 天。
 | `gold` | `int` | 金币数量 |
 | `items` | `object` | 物品库存，key 为物品名，value 为数量 |
 | `avatar_url` | `string\|null` | 头像 URL，后期扩展 |
+| `housing_tier` | `int` | 当前房产等级 (MVP 7.0) |
 | `upkeep` | `object` | 地租健康度信息 (MVP 4.0) |
 | `upkeep.rate` | `int` | 地租费率（🪙/min） |
 | `upkeep.minutes_remaining` | `int` | 当前金币可支撑的分钟数 |
@@ -762,6 +774,452 @@ Token 通过登录接口获取，有效期 7 天。
 
 ---
 
+### 17. GET /api/social/profile/:username
+
+获取指定玩家的公开名片信息。
+
+> **MVP 7.0 新增**  
+> 返回玩家的房产信息、阶级徽章、净值等公开数据。
+
+#### Request
+
+| 参数 | 位置 | 类型 | 必填 | 说明 |
+|------|------|------|------|------|
+| `username` | path | `string` | 是 | 目标玩家用户名 |
+
+需携带 `Authorization: Bearer <token>`。
+
+#### Response `data` 结构
+
+```json
+{
+  "user_id": 1,
+  "nickname": "青羽",
+  "avatar_url": null,
+  "housing_tier": 5,
+  "housing": {
+    "name": "乡间小院",
+    "emoji": "🏡",
+    "description": "青砖白墙，院子里种着桂花树",
+    "color": "from-green-400 to-emerald-600",
+    "badge": "green",
+    "total_cost": 3814,
+    "fiat_value": "¥200,000 RMB"
+  },
+  "unlocked_plots": 6,
+  "net_worth": 12500
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `user_id` | `int` | 玩家 ID |
+| `nickname` | `string` | 昵称 |
+| `avatar_url` | `string\|null` | 头像 URL |
+| `housing_tier` | `int` | 当前房产等级 |
+| `housing.name` | `string` | 房产名称 |
+| `housing.emoji` | `string` | 房产图标 |
+| `housing.description` | `string` | 房产描述 |
+| `housing.color` | `string` | 渐变色 class |
+| `housing.badge` | `string` | 徽章类型 |
+| `housing.total_cost` | `int` | 累计升级消耗 |
+| `housing.fiat_value` | `string` | 现实估值 (MVP 8.1) |
+| `unlocked_plots` | `int` | 已解锁土地数 |
+| `net_worth` | `int` | 总净值 |
+
+#### 错误场景
+
+| code | message | 说明 |
+|------|---------|------|
+| `4001` | 玩家不存在 | 用户名无效 |
+
+---
+
+### 18. POST /api/social/upgrade-house
+
+升级当前玩家的房产等级。
+
+> **MVP 7.0 新增**  
+> 消耗金币升级到下一级房产。升级成本指数递增。
+
+#### Request
+
+无参数。需携带 `Authorization: Bearer <token>`。
+
+#### Response `data` 结构
+
+```json
+{
+  "old_tier": 1,
+  "new_tier": 2,
+  "cost": 275,
+  "housing": {
+    "name": "村中木屋",
+    "emoji": "🪵",
+    "description": "冬暖夏凉，能听见溪水声",
+    "color": "from-stone-400 to-stone-600",
+    "badge": "stone",
+    "total_cost": 375,
+    "fiat_value": "¥15,000 RMB"
+  }
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `old_tier` | `int` | 升级前等级 |
+| `new_tier` | `int` | 升级后等级 |
+| `cost` | `int` | 本次消耗金币 |
+| `housing` | `object` | 升级后的房产信息 |
+
+#### 错误场景
+
+| code | message | 说明 |
+|------|---------|------|
+| `5001` | 已达最高等级 | 当前等级 >= 20 |
+| `5002` | 金币不足 | 玩家 `gold` < 升级费用 |
+
+---
+
+### 19. GET /api/social/farm/:username
+
+只读方式查看指定玩家的农场状态。
+
+> **MVP 8.0 新增**  
+> 返回目标玩家的土地列表（只读），用于窥探模式。  
+> 前端渲染时应用冷色调滤镜。
+
+#### Request
+
+| 参数 | 位置 | 类型 | 必填 | 说明 |
+|------|------|------|------|------|
+| `username` | path | `string` | 是 | 目标玩家用户名 |
+
+需携带 `Authorization: Bearer <token>`。
+
+#### Response `data` 结构
+
+```json
+{
+  "user_id": 1,
+  "nickname": "青羽",
+  "housing": {
+    "tier": 5,
+    "name": "乡间小院",
+    "emoji": "🏡",
+    "badge": "green",
+    "color": "from-green-400 to-emerald-600"
+  },
+  "plots": [
+    {
+      "plot_id": 1,
+      "status": "growing",
+      "crop": "corn",
+      "remaining_seconds": 840,
+      "crop_name": "玉米",
+      "crop_emoji": "🌽"
+    },
+    {
+      "plot_id": 2,
+      "status": "idle",
+      "crop": null,
+      "remaining_seconds": 0,
+      "crop_name": null,
+      "crop_emoji": null
+    }
+  ]
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `user_id` | `int` | 玩家 ID |
+| `nickname` | `string` | 昵称 |
+| `housing` | `object` | 房产摘要信息 |
+| `plots[]` | `array` | 土地列表 |
+| `plots[].plot_id` | `int` | 土地编号 |
+| `plots[].status` | `string` | 土地状态 |
+| `plots[].crop` | `string\|null` | 作物标识 |
+| `plots[].remaining_seconds` | `int` | 剩余生长秒数 |
+| `plots[].crop_name` | `string\|null` | 作物中文名 |
+| `plots[].crop_emoji` | `string\|null` | 作物 emoji |
+
+---
+
+### 20. GET /api/social/mailbox
+
+获取当前玩家的收件箱。
+
+> **MVP 8.0 新增**  
+> 返回所有收到的密函，按时间倒序排列。
+
+#### Request
+
+无参数。需携带 `Authorization: Bearer <token>`。
+
+#### Response `data` 结构
+
+```json
+[
+  {
+    "id": 1,
+    "sender_id": 2,
+    "sender_name": "商人大李",
+    "content": "兄弟，灵芝卖不卖？我出高价。",
+    "offer_item": "ganoderma",
+    "offer_amount": 10,
+    "offer_price": 60,
+    "status": "unread",
+    "created_at": 1719200000000
+  }
+]
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | `int` | 密函 ID |
+| `sender_id` | `int` | 发送方 ID |
+| `sender_name` | `string` | 发送方昵称 |
+| `content` | `string` | 文字内容 |
+| `offer_item` | `string\|null` | OTC 合约物品 |
+| `offer_amount` | `int\|null` | OTC 合约数量 |
+| `offer_price` | `int\|null` | OTC 合约单价 |
+| `status` | `string` | `unread` \| `read` \| `accepted` \| `declined` |
+| `created_at` | `int` | 发送时间戳 |
+
+---
+
+### 21. GET /api/social/mailbox/sent
+
+获取当前玩家的发件箱。
+
+> **MVP 8.0 新增**  
+> 返回所有已发送的密函，按时间倒序排列。
+
+#### Request
+
+无参数。需携带 `Authorization: Bearer <token>`。
+
+#### Response `data` 结构
+
+```json
+[
+  {
+    "id": 2,
+    "receiver_id": 3,
+    "receiver_name": "种田人",
+    "content": "玉米便宜点卖我？",
+    "offer_item": null,
+    "offer_amount": null,
+    "offer_price": null,
+    "status": "unread",
+    "created_at": 1719200000000
+  }
+]
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | `int` | 密函 ID |
+| `receiver_id` | `int` | 接收方 ID |
+| `receiver_name` | `string` | 接收方昵称 |
+| `content` | `string` | 文字内容 |
+| `offer_item` | `string\|null` | OTC 合约物品 |
+| `offer_amount` | `int\|null` | OTC 合约数量 |
+| `offer_price` | `int\|null` | OTC 合约单价 |
+| `status` | `string` | `unread` \| `read` \| `accepted` \| `declined` |
+| `created_at` | `int` | 发送时间戳 |
+
+---
+
+### 22. GET /api/social/mailbox/unread-count
+
+获取当前玩家的未读密函数量。
+
+> **MVP 8.0 新增**  
+> 前端轮询此接口（15 秒间隔），驱动信箱图标的红色呼吸点。
+
+#### Request
+
+无参数。需携带 `Authorization: Bearer <token>`。
+
+#### Response `data` 结构
+
+```json
+{
+  "count": 3
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `count` | `int` | 未读密函数量 |
+
+---
+
+### 23. POST /api/social/mailbox/send
+
+发送一封密函（可附带 OTC 合约）。
+
+> **MVP 8.0 新增**  
+> 如果附带 OTC 合约（offer_item + offer_amount + offer_price），发送方的金币会被预扣（offer_amount × offer_price），直到接收方接受或拒绝。
+
+#### Request Body
+
+```json
+{
+  "receiver_username": "种田人",
+  "content": "兄弟，灵芝卖不卖？我出高价。",
+  "offer_item": "ganoderma",
+  "offer_amount": 10,
+  "offer_price": 60
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `receiver_username` | `string` | 是 | 接收方用户名 |
+| `content` | `string` | 是 | 密函文字内容 |
+| `offer_item` | `string` | 否 | OTC 合约物品标识 |
+| `offer_amount` | `int` | 否 | OTC 合约数量 |
+| `offer_price` | `int` | 否 | OTC 合约单价 |
+
+#### Response `data` 结构
+
+```json
+{
+  "id": 3
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | `int` | 新密函 ID |
+
+#### 错误场景
+
+| code | message | 说明 |
+|------|---------|------|
+| `6001` | 接收方不存在 | 用户名无效 |
+| `6002` | 不能给自己发信 | sender === receiver |
+| `6003` | 金币不足（预扣） | 发送方 gold < offer_amount × offer_price |
+| `6004` | 参数无效 | 合约参数不完整 |
+
+---
+
+### 24. POST /api/social/mailbox/:id/read
+
+将指定密函标记为已读。
+
+> **MVP 8.0 新增**
+
+#### Request
+
+| 参数 | 位置 | 类型 | 必填 | 说明 |
+|------|------|------|------|------|
+| `id` | path | `int` | 是 | 密函 ID |
+
+需携带 `Authorization: Bearer <token>`。
+
+#### Response `data` 结构
+
+```json
+{
+  "id": 1,
+  "status": "read"
+}
+```
+
+#### 错误场景
+
+| code | message | 说明 |
+|------|---------|------|
+| `6101` | 密函不存在 | ID 无效 |
+
+---
+
+### 25. POST /api/social/mailbox/:id/accept
+
+接受 OTC 合约，触发原子化资产交割。
+
+> **MVP 8.0 新增**
+> 此操作在 Prisma `$transaction` 中完成：
+> 1. 校验密函状态为 unread/read
+> 2. 校验接收方金币 ≥ 合约总价
+> 3. 扣接收方金币 → 加发送方金币（退回预扣）
+> 4. 转移物品库存
+> 5. 标记密函为 accepted
+
+#### Request
+
+| 参数 | 位置 | 类型 | 必填 | 说明 |
+|------|------|------|------|------|
+| `id` | path | `int` | 是 | 密函 ID |
+
+需携带 `Authorization: Bearer <token>`。
+
+#### Response `data` 结构
+
+```json
+{
+  "id": 1,
+  "status": "accepted",
+  "item": "ganoderma",
+  "amount": 10,
+  "total_cost": 600
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | `int` | 密函 ID |
+| `status` | `string` | 更新后状态 |
+| `item` | `string` | 交易物品 |
+| `amount` | `int` | 交易数量 |
+| `total_cost` | `int` | 接收方支付总额 |
+
+#### 错误场景
+
+| code | message | 说明 |
+|------|---------|------|
+| `6201` | 密函不存在或已处理 | 状态不是 unread/read |
+| `6202` | 金币不足 | 接收方 gold < 合约总价 |
+| `6203` | 该密函不包含 OTC 合约 | offer_item 为 null |
+
+---
+
+### 26. POST /api/social/mailbox/:id/decline
+
+拒绝 OTC 合约，退回发送方预扣金币。
+
+> **MVP 8.0 新增**
+> 退回发送方预扣的合约金币，标记密函为 declined。
+
+#### Request
+
+| 参数 | 位置 | 类型 | 必填 | 说明 |
+|------|------|------|------|------|
+| `id` | path | `int` | 是 | 密函 ID |
+
+需携带 `Authorization: Bearer <token>`。
+
+#### Response `data` 结构
+
+```json
+{
+  "id": 1,
+  "status": "declined"
+}
+```
+
+#### 错误场景
+
+| code | message | 说明 |
+|------|---------|------|
+| `6301` | 密函不存在或已处理 | 状态不是 unread/read |
+
+---
+
 ## 错误码规范
 
 | 范围 | 模块 | 说明 |
@@ -776,7 +1234,11 @@ Token 通过登录接口获取，有效期 7 天。
 | `2100~2199` | 市场-购买 | 购买相关错误 |
 | `3000~3099` | 市场-企业 | NPC 企业交易相关错误 |
 | `4000~4099` | 认证 | JWT 认证相关错误 |
-| `5000~5099` | 地租-清算 | 地租结算/破产清算相关错误 |
+| `5000~5099` | 社交-房产 | 房产升级相关错误 (MVP 7.0) |
+| `6000~6099` | 社交-信箱 | 发送密函相关错误 (MVP 8.0) |
+| `6100~6199` | 社交-信箱 | 标记已读相关错误 (MVP 8.0) |
+| `6200~6299` | 社交-信箱 | 接受 OTC 相关错误 (MVP 8.0) |
+| `6300~6399` | 社交-信箱 | 拒绝 OTC 相关错误 (MVP 8.0) |
 | `9000~9999` | 通用 | 系统级错误（参数校验等） |
 
 ### 通用错误

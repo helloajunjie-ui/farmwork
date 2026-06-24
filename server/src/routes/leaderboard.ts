@@ -2,6 +2,7 @@ import { Router } from 'express'
 import prisma from '../prisma.js'
 import { getAllBuyPrices } from '../services/priceEngine.js'
 import { CROPS } from '../config/economy_matrix.js'
+import { getAccumulatedHousingCost } from '../config/housing_matrix.js'
 import type { AuthRequest } from '../middleware/auth.js'
 
 const router = Router()
@@ -40,6 +41,7 @@ router.get('/', async (_req: AuthRequest, res) => {
         userId: true,
         nickname: true,
         gold: true,
+        housingTier: true,
         _count: {
           select: {
             plots: {
@@ -75,7 +77,10 @@ router.get('/', async (_req: AuthRequest, res) => {
         inventoryValue += inv.amount * price
       }
 
-      const netWorth = user.gold + landValue + inventoryValue
+      // 房产累计投入（从 housing_matrix 读取）
+      const totalHousingCost = getAccumulatedHousingCost(user.housingTier)
+
+      const netWorth = user.gold + landValue + inventoryValue + totalHousingCost
 
       return {
         user_id: user.userId,

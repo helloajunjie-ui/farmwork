@@ -179,9 +179,10 @@ router.get('/mailbox/unread-count', async (req: AuthRequest, res: Response) => {
   }
 })
 
-// ===== 发送信件 =====
+// ===== 发送信件（含 OTC 担保交易预扣） =====
 // POST /api/social/mailbox/send
 // Body: { receiver_username, content, offer_item?, offer_amount?, offer_price? }
+// 关键原则：offerPrice 在 DB 中代表"契约总金额"，send 时直接预扣 offerPrice
 router.post('/mailbox/send', async (req: AuthRequest, res: Response) => {
   try {
     const senderId = req.userId!
@@ -208,46 +209,63 @@ router.post('/mailbox/send', async (req: AuthRequest, res: Response) => {
       return
     }
 
-    // 如果有 OTC 契约，预扣发件人金币
+    // 如果有 OTC 契约，在事务中预扣发件人金币
     if (offer_item && offer_amount && offer_price) {
-      const sender = await prisma.user.findUnique({
-        where: { userId: senderId },
-        select: { gold: true },
+      const totalPrice = Math.max(1, Math.floor(offer_price))
+
+      await prisma.$transaction(async (tx: any) => {
+        const sender = await tx.user.findUnique({
+          where: { userId: senderId },
+          select: { gold: true },
+        })
+
+        if (!sender || sender.gold < totalPrice) {
+          throw new Error('金币不足，无法发起契约')
+        }
+
+        // 预扣金币（冻结在系统内）
+        await tx.user.update({
+          where: { userId: senderId },
+          data: { gold: { decrement: totalPrice } },
+        })
+
+        // 创建信件（在事务内保证一致性）
+        await tx.mailbox.create({
+          data: {
+            senderId,
+            receiverId: receiver.userId,
+            content: content || '',
+            offerItem: offer_item,
+            offerAmount: Math.max(1, Math.floor(offer_amount)),
+            offerPrice: totalPrice,
+            status: 'unread',
+          },
+        })
       })
-
-      if (!sender || sender.gold < offer_price) {
-        res.status(400).json({ code: 8003, message: '金币不足，无法发起契约', data: null })
-        return
-      }
-
-      // 预扣金币
-      await prisma.user.update({
-        where: { userId: senderId },
-        data: { gold: { decrement: offer_price } },
+    } else {
+      // 纯文本信件，无需事务
+      await prisma.mailbox.create({
+        data: {
+          senderId,
+          receiverId: receiver.userId,
+          content: content || '',
+          offerItem: null,
+          offerAmount: null,
+          offerPrice: null,
+          status: 'unread',
+        },
       })
     }
-
-    // 创建信件
-    const mail = await prisma.mailbox.create({
-      data: {
-        senderId,
-        receiverId: receiver.userId,
-        content: content || '',
-        offerItem: offer_item || null,
-        offerAmount: offer_amount ? Math.max(1, Math.floor(offer_amount)) : null,
-        offerPrice: offer_price ? Math.max(1, Math.floor(offer_price)) : null,
-        status: 'unread',
-      },
-    })
 
     res.json({
       code: 0,
       message: '密函已投递',
-      data: { id: mail.id },
+      data: null,
     })
-  } catch (err) {
+  } catch (err: any) {
     console.error('发送信件失败:', err)
-    res.status(500).json({ code: 9999, message: '服务器内部错误', data: null })
+    const msg = err?.message || '发送失败'
+    res.status(400).json({ code: 8003, message: msg, data: null })
   }
 })
 
@@ -277,6 +295,12 @@ router.post('/mailbox/:id/read', async (req: AuthRequest, res: Response) => {
 
 // ===== 接受 OTC 契约（原子交割） =====
 // POST /api/social/mailbox/:id/accept
+// 关键原则：Send 已预扣发件人金币，此处只做：
+//   1. 校验收件人库存
+//   2. 扣除收件人物品，增加给发件人
+//   3. 将 offerPrice（预扣款）释放给收件人
+//   4. 标记 accepted
+// 绝不对发件人二次扣款！
 router.post('/mailbox/:id/accept', async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId!
@@ -300,16 +324,7 @@ router.post('/mailbox/:id/accept', async (req: AuthRequest, res: Response) => {
 
     // 原子事务交割
     await prisma.$transaction(async (tx: any) => {
-      // 1. 校验发件人金币（可能被其他消费耗尽）
-      const sender = await tx.user.findUnique({
-        where: { userId: mail.senderId },
-        select: { gold: true },
-      })
-      if (!sender || sender.gold < mail.offerPrice) {
-        throw new Error('发件人金币不足，契约失效')
-      }
-
-      // 2. 校验收件人库存
+      // 1. 校验收件人库存
       const receiverInv = await tx.inventory.findUnique({
         where: { userId_item: { userId: mail.receiverId, item: mail.offerItem } },
       })
@@ -317,17 +332,13 @@ router.post('/mailbox/:id/accept', async (req: AuthRequest, res: Response) => {
         throw new Error('你的库存不足，无法成交')
       }
 
-      // 3. 金币流转：发件人 -> 收件人
-      await tx.user.update({
-        where: { userId: mail.senderId },
-        data: { gold: { decrement: mail.offerPrice } },
-      })
+      // 2. 金币流转：将预扣的 offerPrice 释放给收件人（发件人已在 Send 时被扣）
       await tx.user.update({
         where: { userId: mail.receiverId },
         data: { gold: { increment: mail.offerPrice } },
       })
 
-      // 4. 库存流转：收件人 -> 发件人
+      // 3. 库存流转：收件人 -> 发件人
       await tx.inventory.update({
         where: { userId_item: { userId: mail.receiverId, item: mail.offerItem } },
         data: { amount: { decrement: mail.offerAmount } },
@@ -337,7 +348,7 @@ router.post('/mailbox/:id/accept', async (req: AuthRequest, res: Response) => {
         data: { amount: { increment: mail.offerAmount } },
       })
 
-      // 5. 标记契约成交
+      // 4. 标记契约成交
       await tx.mailbox.update({
         where: { id },
         data: { status: 'accepted' },
@@ -352,8 +363,9 @@ router.post('/mailbox/:id/accept', async (req: AuthRequest, res: Response) => {
   }
 })
 
-// ===== 拒绝 OTC 契约 =====
+// ===== 拒绝 OTC 契约（退还预扣款） =====
 // POST /api/social/mailbox/:id/decline
+// 关键原则：将 Send 时预扣的 offerPrice 全额退还给发件人
 router.post('/mailbox/:id/decline', async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId!
@@ -370,17 +382,20 @@ router.post('/mailbox/:id/decline', async (req: AuthRequest, res: Response) => {
       return
     }
 
-    // 退还发件人预扣金币
-    if (mail.offerPrice && mail.offerPrice > 0) {
-      await prisma.user.update({
-        where: { userId: mail.senderId },
-        data: { gold: { increment: mail.offerPrice } },
-      })
-    }
+    // 原子退还：退还预扣款 + 标记拒绝
+    await prisma.$transaction(async (tx: any) => {
+      // 退还发件人预扣金币
+      if (mail.offerPrice && mail.offerPrice > 0) {
+        await tx.user.update({
+          where: { userId: mail.senderId },
+          data: { gold: { increment: mail.offerPrice } },
+        })
+      }
 
-    await prisma.mailbox.update({
-      where: { id },
-      data: { status: 'declined' },
+      await tx.mailbox.update({
+        where: { id },
+        data: { status: 'declined' },
+      })
     })
 
     res.json({ code: 0, message: '已拒绝该契约' })

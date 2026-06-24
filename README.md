@@ -1,6 +1,6 @@
 # 🌾 赛博农场 (Text-First Farm Game)
 
-> **文字先行 · 轻量高效 · 反通胀经济 · 阶级榜单**  
+> **文字先行 · 轻量高效 · 反通胀经济 · 阶级榜单 · 豪宅矩阵 · 场外暗池**  
 > 一款纯文字界面的农场经营游戏 MVP，采用 Vue 3 + Express + SQLite 全栈架构。
 
 ---
@@ -17,6 +17,10 @@
 | 🐮 **打工牛** | 一次性购买，自动离线播种/收割 |
 | 🏆 **排行榜** | 双轨制：农夫新星榜 vs 资本巨鳄榜 |
 | 🏢 **仓储中心** | 查看资产结构、库存容量、阶级徽章 |
+| 🏠 **豪宅系统** | 20 阶房产矩阵，从茅草棚到赛博庄园 |
+| 💎 **双重计价** | 游戏金币升级 + 现实 RMB 估值心理锚点 |
+| 📮 **信箱系统** | 异步密函 + 场外暗池交易（OTC 智能合约） |
+| 🕵️ **互访窥探** | 潜入他人农场，冷色调只读浏览 |
 
 ### 经济循环
 
@@ -24,6 +28,8 @@
 播种 → 收获(3作物) → 市场/企业卖出 → 赚金币 → 解锁土地(100~128000) → 更多产出
                                                                    ↓
                                                              购买打工牛(5000) → 离线自动化
+                                                                   ↓
+                                                             升级豪宅(100~∞) → 社交炫耀
 ```
 
 ### 解锁价格曲线
@@ -41,32 +47,32 @@ nongchang/
 ├── ARCHITECTURE.md          # 架构总览
 ├── README.md                # 本文件
 ├── docs/
-│   ├── api-contract.md      # API 契约文档（15+ 个端点）
-│   ├── database-ddl.md      # 数据库设计（7 表）
+│   ├── api-contract.md      # API 契约文档（25+ 个端点）
+│   ├── database-ddl.md      # 数据库设计（8 表）
 │   └── frontend-architecture.md  # 前端架构
 ├── client/                  # Vue 3 前端
 │   ├── src/
 │   │   ├── api/             # API 层（真实 + Mock）
-│   │   ├── components/      # 通用组件（AppHeader/Footer, LeaderboardModal, SellModal 等）
-│   │   ├── stores/          # Pinia 状态管理（user/farm/market/company/leaderboard）
+│   │   ├── components/      # 通用组件（AppHeader/Footer, ProfileCard, Mailbox 等）
+│   │   ├── stores/          # Pinia 状态管理（user/farm/market/company/leaderboard/mailbox）
 │   │   ├── views/           # 页面组件（Farm/Market/User/Login）
 │   │   ├── types/           # TypeScript 类型
 │   │   ├── utils/           # 工具函数（format.ts 全局格式化）
-│   │   ├── config/          # 游戏配置（crops, gameData）
+│   │   ├── config/          # 游戏配置（crops, gameData, housing）
 │   │   ├── router/          # 路由配置
 │   │   └── styles/          # 全局样式
 │   └── ...
 └── server/                  # Express 后端
     ├── prisma/
-    │   └── schema.prisma    # 数据模型定义
+    │   └── schema.prisma    # 数据模型定义（8 表）
     ├── src/
     │   ├── index.ts         # Express 入口
     │   ├── prisma.ts        # PrismaClient 单例
     │   ├── seed.ts          # 种子数据
-    │   ├── config/          # 配置（crops, companies, economy_matrix）
+    │   ├── config/          # 配置（crops, companies, economy_matrix, housing_matrix）
     │   ├── services/        # 业务服务（priceEngine）
     │   ├── middleware/      # 中间件（auth, upkeep）
-    │   └── routes/          # API 路由（auth/farm/market/user/leaderboard）
+    │   └── routes/          # API 路由（auth/farm/market/user/leaderboard/social/mailbox）
     └── ...
 ```
 
@@ -131,6 +137,10 @@ npx vite --host 0.0.0.0  # 启动前端（端口 5173）
 - **相位延迟种子定价** — 种子价滞后于收购价 ~5 分钟，创造套利窗口
 - **双轨制排行榜** — 农夫新星榜(≤6块地) vs 资本巨鳄榜(>6块地)
 - **全局单位格式化** — 所有数字带 🪙/吨 单位，杜绝光秃秃的数字
+- **20 阶豪宅矩阵** — 指数级金币回收，纯消耗型社交炫耀资产
+- **双重计价** — 游戏内金币 + 现实 RMB 估值，心理锚点强化
+- **场外暗池交易** — 信箱系统内嵌 OTC 智能合约，原子化交割
+- **单向窥探** — 只读农场访问 + 冷色调滤镜，激发社交互动
 
 ---
 
@@ -139,8 +149,8 @@ npx vite --host 0.0.0.0  # 启动前端（端口 5173）
 | 文档 | 说明 |
 |------|------|
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | 系统架构总览 |
-| [`docs/api-contract.md`](docs/api-contract.md) | API 契约（15+ 个端点） |
-| [`docs/database-ddl.md`](docs/database-ddl.md) | 数据库设计（7 表 + 事务 SQL） |
+| [`docs/api-contract.md`](docs/api-contract.md) | API 契约（25+ 个端点） |
+| [`docs/database-ddl.md`](docs/database-ddl.md) | 数据库设计（8 表 + 事务 SQL） |
 | [`docs/frontend-architecture.md`](docs/frontend-architecture.md) | 前端架构（组件树 + 数据流） |
 
 ---
@@ -159,4 +169,7 @@ npx vite --host 0.0.0.0  # 启动前端（端口 5173）
 | MVP 5.0 | JWT 认证系统 + 登录/注册 |
 | MVP 5.1 | 新手引导（500 金币 + 30 小麦 + 30 种子） |
 | MVP 5.2 | App 级移动端 UX（TabBar + Bottom Sheet + 防误触） |
-| **MVP 6.0** | **阶级榜单 + 仓储美学（单位格式化 + 排行榜 + 仓储大仓）** |
+| MVP 6.0 | 阶级榜单 + 仓储美学（单位格式化 + 排行榜 + 仓储大仓） |
+| **MVP 7.0** | **20 阶豪宅矩阵 + 全局公开名片 + 房产升级入口** |
+| **MVP 8.0** | **互访窥探 + 场外暗池（信箱系统 + OTC 智能合约 + 原子化交割）** |
+| **MVP 8.1** | **双重计价 — 房产现实估值系统（¥RMB 金色估值 UI）** |

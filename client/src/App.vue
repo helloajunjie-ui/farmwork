@@ -1,18 +1,26 @@
 <script setup lang="ts">
-import { onMounted, watch } from 'vue'
+import { onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from './stores/user'
+import { useMailboxStore } from './stores/mailbox'
 import AppHeader from './components/AppHeader.vue'
 import AppFooter from './components/AppFooter.vue'
 
 const route = useRoute()
 const userStore = useUserStore()
+const mailboxStore = useMailboxStore()
 
 // 非登录页才加载用户数据
 onMounted(async () => {
   if (route.name !== 'login') {
     await userStore.fetchUserInfo()
   }
+  // 整个应用生命周期内只有一个轮询实例
+  mailboxStore.startPolling()
+})
+
+onUnmounted(() => {
+  mailboxStore.stopPolling()
 })
 
 // 路由切换时：从登录页进入农场时加载数据

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { useMailboxStore } from '../stores/mailbox'
 import MailDetailModal from './MailDetailModal.vue'
 import type { MailboxMessage } from '../types'
@@ -17,8 +17,9 @@ const activeTab = ref<'inbox' | 'sent'>('inbox')
 const selectedMail = ref<MailboxMessage | null>(null)
 const showDetail = ref(false)
 
-onMounted(async () => {
-  if (props.show) {
+// 响应式拉取：弹窗打开时加载数据
+watch(() => props.show, async (val) => {
+  if (val) {
     await Promise.all([
       mailboxStore.fetchInbox(),
       mailboxStore.fetchSentBox(),
@@ -151,6 +152,7 @@ function getMailSummary(mail: any): string {
       <MailDetailModal
         :show="showDetail"
         :mail="selectedMail"
+        :is-sent="activeTab === 'sent'"
         @close="showDetail = false"
         @updated="onDetailUpdated"
       />

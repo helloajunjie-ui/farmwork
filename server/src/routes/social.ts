@@ -1,7 +1,7 @@
 // ===== MVP 7.0: 社交系统 — 公开名片 & 房产升级 =====
 import { Router, Request, Response } from 'express'
 import prisma from '../prisma.js'
-import { getHousingTier, getNextHousingTier } from '../config/housing_matrix.js'
+import { getHousingTier, getNextHousingTier, getAccumulatedHousingCost } from '../config/housing_matrix.js'
 import { getAllBuyPrices } from '../services/priceEngine.js'
 import { CROPS } from '../config/crops.js'
 
@@ -54,7 +54,10 @@ router.get('/profile/:username', async (req: AuthRequest, res: Response) => {
       inventoryValue += inv.amount * price
     }
 
-    const netWorth = user.gold + landValue + inventoryValue
+    // 房产累计投入
+    const totalHousingCost = getAccumulatedHousingCost(user.housingTier)
+
+    const netWorth = user.gold + landValue + inventoryValue + totalHousingCost
     const housing = getHousingTier(user.housingTier)
 
     res.json({
@@ -117,15 +120,18 @@ router.post('/upgrade-house', async (req: AuthRequest, res: Response) => {
       return
     }
 
-    // 事务：扣金币 + 升级
+    // 事务：扣金币 + 升级，在事务内部读取最新金币值
+    let goldRemaining = 0
     await prisma.$transaction(async (tx: any) => {
-      await tx.user.update({
+      const updated = await tx.user.update({
         where: { userId },
         data: {
           gold: { decrement: next.cost },
           housingTier: next.tier,
         },
       })
+      // 在事务内部计算剩余金币（读取 update 返回的最新值）
+      goldRemaining = updated.gold
     })
 
     const current = getHousingTier(next.tier)
@@ -144,7 +150,7 @@ router.post('/upgrade-house', async (req: AuthRequest, res: Response) => {
           total_cost: current.totalCost,
         },
         cost: next.cost,
-        gold_remaining: user.gold - next.cost,
+        gold_remaining: goldRemaining,
       },
     })
   } catch (err) {

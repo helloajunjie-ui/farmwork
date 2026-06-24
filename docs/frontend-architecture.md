@@ -18,9 +18,10 @@ App.vue
 │   ├── InventoryBadge.vue     # 库存快捷显示 (formatAmountCompact 吨)
 │   └── LeaderboardModal.vue   # 🏆 排行榜入口按钮
 │
-├── AppFooter.vue              # 底部 TabBar (Mobile: lg:hidden, 3 tabs)
+├── AppFooter.vue              # 底部 TabBar (Mobile: lg:hidden, 4 tabs)
 │   ├── 🏠 农场 (/)
 │   ├── 📈 市场 (/market)
+│   ├── 📮 信箱 (弹出 MailboxModal)  ← MVP 8.0: 红色呼吸点未读提示
 │   └── 👤 我的 (/user)
 │
 ├── router-view
@@ -54,13 +55,41 @@ App.vue
 │   │   ├── [PlayerInfoCard]   # 玩家信息卡片（阶级徽章 + 净值）
 │   │   ├── [AssetStructure]   # 资产结构（💧流动资金 / 📦大宗存货 进度条）
 │   │   ├── [AssetOverview]    # 3列资产概览（地块/种子/品类）
+│   │   ├── [HousingSection]   # 房产资产区域（MVP 7.0: 当前房产 + 升级按钮 + 金色估值）
 │   │   └── [WarehouseCard]    # 仓储卡片列表（×N，容量进度条 + 市值）
 │   │
 │   └── NotFoundView.vue       # 404 页面
 │
-└── LeaderboardModal.vue       # 🏆 排行榜（PC: 居中弹窗, Mobile: Bottom Sheet）
-    ├── 农夫新星榜 (≤6块地)
-    └── 资本巨鳄榜 (>6块地)
+├── LeaderboardModal.vue       # 🏆 排行榜（PC: 居中弹窗, Mobile: Bottom Sheet）
+│   ├── 农夫新星榜 (≤6块地)
+│   └── 资本巨鳄榜 (>6块地)
+│   └── 可点击昵称 → ProfileCardModal (MVP 7.0)
+│
+├── ProfileCardModal.vue       # 💎 玻璃态公开名片（MVP 7.0）
+│   ├── 阶级徽章 + 房产信息 + 金色双重计价 (MVP 8.1)
+│   ├── 🕵️ 潜入他的农场 → ReadonlyFarmModal (MVP 8.0)
+│   └── 📮 投递密函 → MailComposeModal (MVP 8.0)
+│
+├── ReadonlyFarmModal.vue      # 🕵️ 只读农场窥探（MVP 8.0）
+│   ├── 冷色调滤镜 (hue-rotate + saturate)
+│   ├── 3 列土地网格（只读）
+│   └── 📮 投递密函 → MailComposeModal
+│
+├── MailboxModal.vue           # 📮 信箱（MVP 8.0）
+│   ├── [收件箱] / [发件箱] Tab 切换
+│   ├── 未读密函高亮
+│   └── 点击密函 → MailDetailModal
+│
+├── MailComposeModal.vue       # ✉️ 撰写密函（MVP 8.0）
+│   ├── 接收方输入 + 文字内容
+│   └── OTC 合约开关（物品 + 数量 + 单价）
+│
+├── MailDetailModal.vue        # 🔥 密函详情（MVP 8.0）
+│   ├── 火漆信封头部（琥珀色渐变）
+│   ├── OTC 合约卡片（物品/数量/总价）
+│   └── [盖章成交] / [拒绝] 按钮
+│
+└── SellModal.vue              # 发布卖单弹窗
 ```
 
 > `[Brackets]` 表示内联在父组件中的片段，非独立组件文件。
@@ -87,6 +116,7 @@ interface UserState {
   items: Record<string, number>  // { corn: 0, seed: 10, wheat: 0, hops: 0 }
   avatarUrl: string | null
   upkeep: UpkeepInfo | null      // MVP 4.0 地租健康度
+  housingTier: number            // MVP 7.0: 当前房产等级
 }
 
 // Computed (资金链健康度)
@@ -235,6 +265,53 @@ interface LeaderboardState {
 fetchLeaderboard()    // GET /api/leaderboard → 填充两个榜单
 ```
 
+### 2.6 `useMailboxStore` — 信箱 (MVP 8.0)
+
+```typescript
+// stores/mailbox.ts
+interface MailboxMessage {
+  id: number
+  sender_id: number
+  sender_name: string
+  content: string
+  offer_item: string | null
+  offer_amount: number | null
+  offer_price: number | null
+  status: 'unread' | 'read' | 'accepted' | 'declined'
+  created_at: number
+}
+
+interface SentMailboxMessage {
+  id: number
+  receiver_id: number
+  receiver_name: string
+  content: string
+  offer_item: string | null
+  offer_amount: number | null
+  offer_price: number | null
+  status: 'unread' | 'read' | 'accepted' | 'declined'
+  created_at: number
+}
+
+interface MailboxState {
+  inbox: MailboxMessage[]
+  sent: SentMailboxMessage[]
+  unreadCount: number
+  loading: boolean
+}
+
+// Actions
+fetchInbox()              // GET /api/social/mailbox
+fetchSentBox()            // GET /api/social/mailbox/sent
+fetchUnreadCount()        // GET /api/social/mailbox/unread-count
+sendMail(req)             // POST /api/social/mailbox/send
+markRead(id)              // POST /api/social/mailbox/:id/read
+acceptOffer(id)           // POST /api/social/mailbox/:id/accept
+declineOffer(id)          // POST /api/social/mailbox/:id/decline
+startPolling()            // 启动 15 秒轮询（unread-count）
+stopPolling()             // 停止轮询
+```
+
 ---
 
 ## 三、核心交互流程
@@ -340,6 +417,7 @@ fetchLeaderboard()    // GET /api/leaderboard → 填充两个榜单
 │     capitalists[] → >6块地，Top 50                 │
 │     ↓                                             │
 │  6. 前端渲染：🥇🥈🥉 + 排名 + 头像 + 昵称 + 地块 + 净值 │
+│  7. 点击昵称 → ProfileCardModal (MVP 7.0)         │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -364,6 +442,76 @@ fetchLeaderboard()    // GET /api/leaderboard → 填充两个榜单
 │  4. StickyActionBar (MarketView)                    │
 │     Mobile: 底部固定 Buy/Sell 按钮                   │
 │     padding-bottom: env(safe-area-inset-bottom)     │
+│                                                     │
+│  5. ProfileCardModal / MailboxModal / 等 (MVP 7.0/8.0) │
+│     PC: 居中弹窗                                    │
+│     Mobile: 底部滑出                                │
+└─────────────────────────────────────────────────────┘
+```
+
+### 3.9 公开名片流程 (MVP 7.0)
+
+```
+┌─ 用户点击可点击昵称 ────────────────────────────┐
+│  1. 排行榜/市场盘口 → 点击昵称                    │
+│  2. ProfileCardModal.vue 显示                     │
+│  3. fetchProfile(username) → GET /api/social/profile/:username │
+│     ↓                                             │
+│  4. 显示玻璃态名片：                                │
+│     - 阶级徽章 + 房产 emoji + 房产名称              │
+│     - 💎 金色现实估值 (MVP 8.1)                    │
+│     - 总净值 + 已解锁地块                          │
+│     ↓                                             │
+│  5. 操作按钮：                                     │
+│     - 🕵️ 潜入他的农场 → ReadonlyFarmModal          │
+│     - 📮 投递密函 → MailComposeModal               │
+└─────────────────────────────────────────────────────┘
+```
+
+### 3.10 信箱 OTC 暗池交易流程 (MVP 8.0)
+
+```
+┌─ 发送方 ──────────────────────────────────────────┐
+│  1. 在 ReadonlyFarmModal 或 ProfileCardModal 点击  │
+│     [📮 投递密函]                                  │
+│  2. MailComposeModal 显示                          │
+│  3. 填写接收方 + 文字内容                          │
+│  4. 可选：开启 OTC 合约（物品 + 数量 + 单价）      │
+│  5. 点击 [📨 发送]                                 │
+│     ↓ 后端：预扣发送方金币（如有 OTC 合约）         │
+│  6. 成功 → 关闭弹窗，刷新发件箱                    │
+└─────────────────────────────────────────────────────┘
+
+┌─ 接收方 ──────────────────────────────────────────┐
+│  1. 信箱图标红色呼吸点提示有新密函                  │
+│  2. 点击 📮 打开 MailboxModal                      │
+│  3. 点击未读密函 → MailDetailModal 显示            │
+│     ↓ 火漆信封 UI + OTC 合约卡片                   │
+│  4. 如有 OTC 合约：                                │
+│     ├─ [✅ 盖章成交] → 原子化资产交割              │
+│     │   - 扣接收方金币 → 加发送方金币              │
+│     │   - 转移物品库存                             │
+│     │   - 标记密函为 accepted                      │
+│     └─ [❌ 拒绝] → 退回发送方预扣金币              │
+│  5. 如无 OTC 合约：                                │
+│     └─ 标记已读即可                                │
+└─────────────────────────────────────────────────────┘
+```
+
+### 3.11 房产升级流程 (MVP 7.0)
+
+```
+┌─ 用户在仓储中心 ────────────────────────────────┐
+│  1. UserView.vue 房产区域显示当前房产              │
+│     - 房产 emoji + 名称 + 描述                    │
+│     - 💎 金色现实估值 (MVP 8.1)                   │
+│     - 下一级预览（名称 + 价格）                    │
+│  2. 点击 [🏗️ 升级]                                │
+│     ↓                                             │
+│  3. POST /api/social/upgrade-house                │
+│     ↓ 后端：扣金币 + 更新 housing_tier             │
+│  4. 成功 → 刷新用户信息 + 房产显示                 │
+│  5. 失败 → 显示错误提示（"金币不足" / "已达最高"） │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -390,6 +538,9 @@ fetchLeaderboard()    // GET /api/leaderboard → 填充两个榜单
 | 卖出价 | `#ef4444` (red-500) | 市场卖出价（红色） |
 | 农夫榜 | `#4ade80` (green-400) | 农夫新星榜主题色 |
 | 资本榜 | `#c084fc` (purple-400) | 资本巨鳄榜主题色 |
+| 金色估值 | `from-yellow-400 to-amber-600` | 现实 RMB 估值渐变色 (MVP 8.1) |
+| 火漆信封 | `#d97706` (amber-600) | 密函详情头部 (MVP 8.0) |
+| 窥探滤镜 | `hue-rotate(200deg) saturate(0.6)` | 只读农场冷色调 (MVP 8.0) |
 
 ### 4.2 状态卡片样式
 
@@ -479,6 +630,13 @@ fetchLeaderboard()    // GET /api/leaderboard → 填充两个榜单
 │  │  🏞️ 6 地块  🌱 10 种子  📦 3 品类  │     │
 │  └──────────────────────────────────────┘     │
 │                                              │
+│  ┌─ 房产资产 ──────────────────────────┐     │  ← MVP 7.0
+│  │  🏡 乡间小院                         │     │
+│  │  💎 ¥200,000 RMB                     │     │  ← MVP 8.1 金色估值
+│  │  下一级: 🪵 村中木屋 · 275 🪙       │     │
+│  │  [🏗️ 升级]                          │     │
+│  └──────────────────────────────────────┘     │
+│                                              │
 │  ┌─ 仓储卡片 ──────────────────────────┐     │
 │  │  🌽 玉米                             │     │
 │  │  1,200 吨 / 10,000 吨               │     │
@@ -510,19 +668,81 @@ fetchLeaderboard()    // GET /api/leaderboard → 填充两个榜单
 └────────────────────────────────────────────┘
 ```
 
-### 4.8 状态反馈
+> **MVP 7.0**: 排行榜中的昵称可点击（cyan 下划线样式），点击弹出 ProfileCardModal。
 
-| 场景 | 反馈 |
-|------|------|
-| 页面加载 | 骨架屏（灰色占位块 + 脉冲动画） |
-| 操作进行中 | 按钮显示 `⏳ 处理中...` 并禁用 |
-| 操作成功 | 按钮短暂闪绿后恢复 |
-| 操作失败 | 底部 Toast 红色错误提示，3秒后自动消失 |
-| 空状态 | 市场无订单时显示 `📭 市场上空空如也，快来发布第一单吧` |
-| 网络错误 | 页面顶部 Toast: `⚠️ 网络开小差了，请稍后重试` |
-| 破产清算 | 全屏暗色遮罩 + shake 动画 + 土地法拍清单，3秒后自动关闭 |
-| 排行榜加载 | 骨架屏列表（3行灰色占位） |
-| 排行榜空 | 该阶级暂无玩家上榜 |
+### 4.8 玻璃态名片 UI (MVP 7.0)
+
+```
+┌─ 💎 玩家名片 ────────────────────────────┐
+│  ┌──────────────────────────────┐         │
+│  │  背景: backdrop-blur-xl      │         │  ← 玻璃态
+│  │  边框: 渐变色 (按阶级)       │         │
+│  │                              │         │
+│  │      🏡                      │         │  ← 房产 emoji
+│  │      乡间小院                │         │  ← 房产名称
+│  │  💎 ¥200,000 RMB             │         │  ← MVP 8.1 金色渐变
+│  │                              │         │
+│  │  👨‍🌾 农夫新星 · 6 地块       │         │  ← 阶级 + 地块
+│  │  预估总净值: 12,500 🪙       │         │
+│  │                              │         │
+│  │  [🕵️ 潜入他的农场]           │         │  ← MVP 8.0
+│  │  [📮 投递密函]               │         │  ← MVP 8.0
+│  └──────────────────────────────┘         │
+└────────────────────────────────────────────┘
+```
+
+### 4.9 信箱 UI (MVP 8.0)
+
+```
+┌─ 📮 信箱 ────────────────────────────────┐
+│  [📨 收件箱]  [📤 发件箱]                │  ← Tab 切换
+│                                            │
+│  ┌─ 密函 ────────────────────────────┐    │
+│  │  🔥 商人大李                       │    │  ← 火漆信封图标
+│  │  兄弟，灵芝卖不卖？我出高价。       │    │
+│  │  📦 OTC 合约: 灵芝 × 10 @ 60 🪙   │    │  ← 合约摘要
+│  │  🕐 2 分钟前                       │    │
+│  │  [📖 查看详情]                     │    │
+│  └──────────────────────────────────────┘    │
+│                                            │
+│  ┌─ 密函详情 (火漆信封) ──────────────┐    │
+│  │  ┌────────────────────────┐         │    │
+│  │  │   🔥                   │         │    │  ← 火漆封印
+│  │  │   商人大李 → 你         │         │    │
+│  │  └────────────────────────┘         │    │
+│  │                                      │    │
+│  │  兄弟，灵芝卖不卖？我出高价。         │    │
+│  │                                      │    │
+│  │  ┌─ OTC 合约 ──────────────────┐    │    │
+│  │  │  📦 灵芝 × 10               │    │    │
+│  │  │  💰 单价: 60 🪙             │    │    │
+│  │  │  💵 总价: 600 🪙            │    │    │
+│  │  └────────────────────────────┘    │    │
+│  │                                      │    │
+│  │  [✅ 盖章成交]  [❌ 拒绝]           │    │
+│  └──────────────────────────────────────┘    │
+└──────────────────────────────────────────────┘
+```
+
+### 4.10 只读农场窥探 UI (MVP 8.0)
+
+```
+┌─ 🕵️ 潜入 青羽 的农场 ────────────────────┐
+│  (冷色调滤镜)                               │  ← filter: hue-rotate(200deg)
+│                                            │
+│  🏡 乡间小院                               │  ← 目标房产
+│                                            │
+│  ┌───┐  ┌───┐  ┌───┐                     │
+│  │🌽 │  │🌿 │  │🔒 │                     │  ← 3 列网格
+│  │14m│  │90m│  │   │                     │
+│  └───┘  └───┘  └───┘                     │
+│  ┌───┐  ┌───┐  ┌───┐                     │
+│  │🟫 │  │🟫 │  │🔒 │                     │
+│  └───┘  └───┘  └───┘                     │
+│                                            │
+│  [📮 投递密函]                             │
+└────────────────────────────────────────────┘
+```
 
 ---
 
@@ -622,6 +842,11 @@ formatUnitPrice(price)       // "🪙 5.00"
   from { transform: translateY(0); }
   to   { transform: translateY(100%); }
 }
+@keyframes breathe {
+  0%, 100% { box-shadow: 0 0 4px 2px rgba(239, 68, 68, 0.3); }
+  50% { box-shadow: 0 0 12px 6px rgba(239, 68, 68, 0.6); }
+}
+.animate-breathe { animation: breathe 2s ease-in-out infinite; }
 ```
 
 ---
@@ -642,20 +867,26 @@ client/
     ├── router/
     │   └── index.ts             # 路由配置（/ /market /user /404）
     ├── stores/
-    │   ├── user.ts              # 玩家信息 store（含地租健康度）
+    │   ├── user.ts              # 玩家信息 store（含地租健康度 + housingTier）
     │   ├── farm.ts              # 农场 store（含种子价格 + 倒计时引擎）
     │   ├── market.ts            # 市场 store（深度 + 轮询）
     │   ├── company.ts           # 企业 store（NPC + 宏观事件）
-    │   └── leaderboard.ts       # 排行榜 store（双轨榜单）
+    │   ├── leaderboard.ts       # 排行榜 store（双轨榜单）
+    │   └── mailbox.ts           # 信箱 store（15s 轮询 + OTC 操作）(MVP 8.0)
     ├── api/
-    │   ├── index.ts             # Axios 实例 + 真实 API 函数
+    │   ├── index.ts             # Axios 实例 + 真实 API 函数（含 social/mailbox）
     │   └── mock.ts              # Mock 实现（纯前端模拟）
     ├── components/
     │   ├── AppHeader.vue        # PC 顶部导航（lg:block, Mobile: hidden）
-    │   ├── AppFooter.vue        # Mobile 底部 TabBar（lg:hidden, 3 tabs）
+    │   ├── AppFooter.vue        # Mobile 底部 TabBar（lg:hidden, 4 tabs + 信箱入口）
     │   ├── GoldDisplay.vue      # 金币显示（formatGold）
     │   ├── InventoryBadge.vue   # 库存快捷显示（formatAmountCompact）
     │   ├── LeaderboardModal.vue # 排行榜弹窗（PC 居中 + Mobile Bottom Sheet）
+    │   ├── ProfileCardModal.vue # 玻璃态公开名片（MVP 7.0）
+    │   ├── ReadonlyFarmModal.vue# 只读农场窥探（MVP 8.0）
+    │   ├── MailboxModal.vue     # 信箱（收件/发件 Tab）（MVP 8.0）
+    │   ├── MailComposeModal.vue # 撰写密函 + OTC 合约（MVP 8.0）
+    │   ├── MailDetailModal.vue  # 密函详情 + 火漆信封（MVP 8.0）
     │   └── SellModal.vue        # 发布卖单弹窗
     ├── views/
     │   ├── FarmView.vue         # 农场主页（含资金链仪表盘 + 种子站 + 破产动画）
@@ -664,15 +895,16 @@ client/
     │   ├── PlotCard.vue         # 单块土地卡片（Mobile Bottom Sheet）
     │   ├── MarketView.vue       # 市场页（含企业面板 + 新闻跑马灯 + StickyActionBar）
     │   ├── OrderTable.vue       # 深度列表
-    │   ├── UserView.vue         # 仓储大仓（阶级徽章 + 净值 + 资产结构 + 仓储卡片）
+    │   ├── UserView.vue         # 仓储大仓（阶级徽章 + 净值 + 房产 + 仓储卡片）
     │   └── NotFoundView.vue     # 404
     ├── config/
     │   ├── gameData.ts          # 游戏配置数据（作物/公司/分类）
-    │   └── crops.ts             # 作物配置
+    │   ├── crops.ts             # 作物配置
+    │   └── housing.ts           # 20 阶房产配置 + 双重计价（MVP 7.0/8.1）
     ├── types/
-    │   └── index.ts             # TypeScript 类型定义（含 LeaderboardEntry）
+    │   └── index.ts             # TypeScript 类型定义（含 HousingInfo, ProfileData, MailboxMessage 等）
     ├── utils/
     │   └── format.ts            # 全局单位格式化工具（MVP 6.0）
     └── styles/
-        └── main.css             # 全局样式（TailwindCSS + 清算动画 + slide-up/down）
+        └── main.css             # 全局样式（TailwindCSS + 清算动画 + slide-up/down + breathe）
 ```

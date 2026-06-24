@@ -80,8 +80,9 @@ function getGlowStyle(tier: number): string {
 
         <!-- 头像 + 昵称 -->
         <div class="pt-8 pb-4 px-6 text-center">
-          <div class="w-16 h-16 mx-auto rounded-full bg-slate-700/50 border-2 border-white/10 flex items-center justify-center text-2xl mb-3 backdrop-blur-sm">
-            {{ profile.avatar_url ? '🖼️' : profile.nickname.charAt(0) }}
+          <div class="w-16 h-16 mx-auto rounded-full bg-slate-700/50 border-2 border-white/10 flex items-center justify-center text-2xl mb-3 backdrop-blur-sm overflow-hidden">
+            <img v-if="profile.avatar_url" :src="profile.avatar_url" class="w-full h-full object-cover" />
+            <span v-else>{{ profile.nickname.charAt(0) }}</span>
           </div>
           <h2 class="text-xl font-bold text-white tracking-wide">{{ profile.nickname }}</h2>
           <span

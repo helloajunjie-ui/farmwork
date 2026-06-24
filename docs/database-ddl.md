@@ -13,6 +13,7 @@
 3. **O(1) 离线结算** — 打工牛 + 地租均使用时间差公式，零 cron 开销
 4. **预留扩展字段** — `avatar_url` 初期为 `NULL`，后期无缝接入
 5. **JWT 无状态认证** — 密码使用 bcrypt 哈希，不存储明文
+6. **原子化 OTC 交割** — 信箱暗池交易在 Prisma `$transaction` 中完成
 
 ---
 
@@ -38,13 +39,16 @@ model User {
   upkeepRate   Float     @default(0) @map("upkeep_rate")
   lastUpkeepAt DateTime  @default(now()) @map("last_upkeep_at")
   isBankrupt   Boolean   @default(false) @map("is_bankrupt")
+  housingTier  Int       @default(1) @map("housing_tier")  // MVP 7.0: 房产等级 1~20
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
-  inventory Inventory[]
-  plots     Plot[]
-  cow       Cow?
-  sellOrders MarketOrder[] @relation("seller")
+  inventory   Inventory[]
+  plots       Plot[]
+  cow         Cow?
+  sellOrders  MarketOrder[]  @relation("seller")
+  sentMails   Mailbox[]      @relation("SentMails")      // MVP 8.0: 发送的密函
+  receivedMails Mailbox[]    @relation("ReceivedMails")   // MVP 8.0: 收到的密函
 
   @@map("users")
 }
@@ -128,6 +132,27 @@ model MarketEvent {
   @@index([expiresAt])
   @@map("market_events")
 }
+
+// MVP 8.0: 信箱系统 — 异步密函 + OTC 智能合约
+model Mailbox {
+  id           Int      @id @default(autoincrement())
+  senderId     Int      @map("sender_id")
+  receiverId   Int      @map("receiver_id")
+  content      String   @default("")
+  offerItem    String?  @map("offer_item")    // OTC 合约物品
+  offerAmount  Int?     @map("offer_amount")  // OTC 合约数量
+  offerPrice   Int?     @map("offer_price")   // OTC 合约单价
+  status       String   @default("unread")    // unread | read | accepted | declined
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  sender   User @relation("SentMails", fields: [senderId], references: [userId])
+  receiver User @relation("ReceivedMails", fields: [receiverId], references: [userId])
+
+  @@index([receiverId, status])
+  @@index([senderId])
+  @@map("mailbox")
+}
 ```
 
 ---
@@ -146,6 +171,7 @@ model MarketEvent {
 | `upkeep_rate` | `Float @default(0)` | 地租费率 (🪙/min) |
 | `last_upkeep_at` | `DateTime @default(now())` | 上次地租结算时间 |
 | `is_bankrupt` | `Boolean @default(false)` | 是否破产 |
+| `housing_tier` | `Int @default(1)` | **MVP 7.0**: 房产等级 (1~20) |
 | `created_at` | `DateTime @default(now())` | 创建时间 |
 | `updated_at` | `DateTime @updatedAt` | 更新时间 |
 
@@ -175,7 +201,13 @@ model MarketEvent {
 > **生长周期**：
 > - 🌾 小麦: 600 秒 (10 min)
 > - 🌽 玉米: 1680 秒 (28 min)
-> - 🍺 啤酒花: 3600 秒 (60 min)
+> - 🥔 土豆: 1200 秒 (20 min)
+> - 🍅 番茄: 900 秒 (15 min)
+> - 🥬 白菜: 720 秒 (12 min)
+> - 🍎 苹果: 2700 秒 (45 min)
+> - 🍇 葡萄: 3600 秒 (60 min)
+> - 🚬 烟草: 5400 秒 (90 min)
+> - 🌿 灵芝: 7200 秒 (120 min)
 
 ### 4. `cows` — 打工牛表
 
@@ -229,6 +261,24 @@ model MarketEvent {
 | `price_modifier` | `Float` | 价格修正系数，1.3 = +30%, 0.7 = -30% |
 | `expires_at` | `DateTime` | 事件过期时间 |
 | `created_at` | `DateTime @default(now())` | 创建时间 |
+
+### 8. `mailbox` — 信箱表 (MVP 8.0)
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | `Int @id @default(autoincrement())` | 主键，自增 |
+| `sender_id` | `Int` | 外键 → users，发送方 |
+| `receiver_id` | `Int` | 外键 → users，接收方 |
+| `content` | `String @default("")` | 密函文字内容 |
+| `offer_item` | `String?` | OTC 合约物品标识，NULL=无合约 |
+| `offer_amount` | `Int?` | OTC 合约数量 |
+| `offer_price` | `Int?` | OTC 合约单价（金币/个） |
+| `status` | `String @default("unread")` | unread=未读 read=已读 accepted=已成交 declined=已拒绝 |
+| `created_at` | `DateTime @default(now())` | 发送时间 |
+| `updated_at` | `DateTime @updatedAt` | 更新时间 |
+
+> **索引**：`(receiver_id, status)` 用于高效查询未读密函  
+> **OTC 预扣机制**：发送时预扣 `offer_amount × offer_price` 金币，接受时转移给接收方，拒绝时退回
 
 ---
 
@@ -399,6 +449,72 @@ await tx.user.update({
 // 直到 gold >= 0
 ```
 
+### 房产升级事务 (MVP 7.0)
+
+```typescript
+await prisma.$transaction(async (tx) => {
+  const user = await tx.user.findUnique({ where: { userId } })
+  if (!user) throw new AppError(4001, '玩家不存在')
+  if (user.housingTier >= 20) throw new AppError(5001, '已达最高等级')
+
+  const nextTier = getHousingTier(user.housingTier + 1)
+  if (user.gold < nextTier.cost) throw new AppError(5002, '金币不足')
+
+  await tx.user.update({
+    where: { userId },
+    data: {
+      gold: { decrement: nextTier.cost },
+      housingTier: { increment: 1 }
+    }
+  })
+})
+```
+
+### 信箱 OTC 接受事务 (MVP 8.0)
+
+```typescript
+await prisma.$transaction(async (tx) => {
+  // 1. 校验密函状态
+  const mail = await tx.mailbox.findUnique({ where: { id } })
+  if (!mail || (mail.status !== 'unread' && mail.status !== 'read'))
+    throw new AppError(6201, '密函不存在或已处理')
+  if (!mail.offerItem || !mail.offerAmount || !mail.offerPrice)
+    throw new AppError(6203, '该密函不包含 OTC 合约')
+
+  const totalCost = mail.offerAmount * mail.offerPrice
+
+  // 2. 校验接收方金币
+  const receiver = await tx.user.findUnique({ where: { userId: receiverId } })
+  if (!receiver || receiver.gold < totalCost)
+    throw new AppError(6202, '金币不足')
+
+  // 3. 扣接收方金币
+  await tx.user.update({
+    where: { userId: receiverId },
+    data: { gold: { decrement: totalCost } }
+  })
+
+  // 4. 退回发送方预扣 + 加出售收入
+  await tx.user.update({
+    where: { userId: mail.senderId },
+    data: { gold: { increment: totalCost } }
+  })
+
+  // 5. 转移物品（接收方获得物品）
+  await tx.inventory.upsert({
+    where: { userId_item: { userId: receiverId, item: mail.offerItem } },
+    update: { amount: { increment: mail.offerAmount } },
+    create: { userId: receiverId, item: mail.offerItem, amount: mail.offerAmount }
+  })
+
+  // 6. 标记密函为 accepted
+  await tx.mailbox.update({
+    where: { id },
+    data: { status: 'accepted' }
+  })
+})
+```
+
 ---
 
 ## 与 PostgreSQL 版本的差异
@@ -413,3 +529,5 @@ await tx.user.update({
 | 部署 | 需独立数据库服务 | 零配置，文件数据库 |
 | 认证 | 无 | JWT + bcrypt |
 | 头像 | 无 | `avatar_url` 预留字段 |
+| 房产 | 无 | `housing_tier` 字段 (MVP 7.0) |
+| 信箱 | 无 | `mailbox` 表 (MVP 8.0) |
