@@ -20,6 +20,7 @@ export interface UserInfo {
   gold: number
   items: Record<string, number>
   avatar_url: string | null
+  housing_tier?: number  // MVP 7.0: 房产等级 1~20
   upkeep?: UpkeepInfo    // MVP 4.0: 资金链健康度
 }
 
@@ -194,6 +195,33 @@ export interface SellToCompanyResponse {
   total_revenue: number
   company_id: string
   company_name: string
+}
+
+// ===== MVP 7.0: 社交名片 & 房产 =====
+export interface HousingInfo {
+  name: string
+  emoji: string
+  description: string
+  color: string
+  badge: string
+  total_cost: number
+}
+
+export interface ProfileData {
+  user_id: number
+  nickname: string
+  avatar_url: string | null
+  housing_tier: number
+  housing: HousingInfo
+  unlocked_plots: number
+  net_worth: number
+}
+
+export interface UpgradeHouseResponse {
+  housing_tier: number
+  housing: HousingInfo
+  cost: number
+  gold_remaining: number
 }
 
 // ===== MVP 6.0: 排行榜 =====

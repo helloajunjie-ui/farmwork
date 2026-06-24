@@ -28,7 +28,7 @@ router.get('/info', async (req: AuthRequest, res) => {
   })
 
   const items: Record<string, number> = {}
-  user.inventory.forEach((inv) => {
+  user.inventory.forEach((inv: { item: string; amount: number }) => {
     items[inv.item] = inv.amount
   })
 
@@ -46,6 +46,7 @@ router.get('/info', async (req: AuthRequest, res) => {
       gold: user.gold,
       items,
       avatar_url: user.avatarUrl,
+      housing_tier: user.housingTier,        // MVP 7.0: 房产等级
       // MVP 4.0: 资金链健康度
       upkeep: {
         rate: upkeepRate,                    // 每分钟地租

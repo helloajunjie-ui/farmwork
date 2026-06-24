@@ -9,6 +9,7 @@ export const useUserStore = defineStore('user', () => {
   const gold = ref(0)
   const items = ref<Record<string, number>>({})
   const avatarUrl = ref<string | null>(null)
+  const housingTier = ref(1)  // MVP 7.0: 房产等级 1~20
   const loading = ref(false)
 
   // MVP 4.0: 资金链健康度
@@ -56,6 +57,7 @@ export const useUserStore = defineStore('user', () => {
       gold.value = data.gold
       items.value = data.items
       avatarUrl.value = data.avatar_url
+      housingTier.value = data.housing_tier ?? 1  // MVP 7.0
 
       // MVP 4.0: 资金链健康度
       if (data.upkeep) {
@@ -77,6 +79,7 @@ export const useUserStore = defineStore('user', () => {
     gold,
     items,
     avatarUrl,
+    housingTier,
     loading,
     upkeep,
     showUpkeepWarning,

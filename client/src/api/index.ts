@@ -160,6 +160,19 @@ export async function sell(
   await http.post('/market/sell', { item, amount, unit_price: unitPrice })
 }
 
+// ===== MVP 7.0: 社交名片 & 房产 =====
+import type { ProfileData, UpgradeHouseResponse } from '../types'
+
+export async function fetchProfile(username: string): Promise<ProfileData> {
+  const res = await http.get<ApiResponse<ProfileData>>(`/social/profile/${username}`)
+  return res.data.data
+}
+
+export async function upgradeHouse(): Promise<UpgradeHouseResponse> {
+  const res = await http.post<ApiResponse<UpgradeHouseResponse>>('/social/upgrade-house')
+  return res.data.data
+}
+
 /** 买入订单 */
 export async function buy(orderId: number): Promise<BuyResponse> {
   const res = await http.post<ApiResponse<BuyResponse>>('/market/buy', {

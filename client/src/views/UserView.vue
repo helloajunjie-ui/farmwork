@@ -4,16 +4,24 @@ import { useUserStore } from '../stores/user'
 import { useRouter } from 'vue-router'
 import { ALL_CROPS } from '../config/crops'
 import { formatGold, formatAmount, formatGoldCompact } from '../utils/format'
+import { getHousingTier, getNextHousingTier } from '../config/housing'
+import { upgradeHouse } from '../api'
 
 const userStore = useUserStore()
 const router = useRouter()
 const loggingOut = ref(false)
+const upgrading = ref(false)
+const upgradeMsg = ref('')
+const upgradeError = ref('')
+
+// 当前房产信息
+const currentHousing = computed(() => getHousingTier(userStore.housingTier ?? 1))
+const nextHousing = computed(() => getNextHousingTier(userStore.housingTier ?? 1))
 
 // 计算总净值（前端估算，精确值由后端排行榜提供）
 const estimatedNetWorth = computed(() => {
   let total = userStore.gold
   total += (userStore.upkeep.unlocked_plots || 6) * 1000
-  // 库存估值（用基础售价估算）
   for (const [item, amount] of Object.entries(userStore.items)) {
     if (item === 'seed' || amount <= 0) continue
     const crop = ALL_CROPS[item]
@@ -48,7 +56,7 @@ const inventoryItems = computed(() => {
     .sort((a, b) => b.value - a.value)
 })
 
-// 流动资金占比（用于饼图进度条）
+// 流动资金占比
 const liquidityRatio = computed(() => {
   const netWorth = estimatedNetWorth.value
   if (netWorth <= 0) return 0.5
@@ -60,6 +68,23 @@ function handleLogout() {
   localStorage.removeItem('token')
   localStorage.removeItem('username')
   router.push('/login')
+}
+
+async function handleUpgrade() {
+  if (!nextHousing.value || upgrading.value) return
+  upgrading.value = true
+  upgradeMsg.value = ''
+  upgradeError.value = ''
+  try {
+    await upgradeHouse()
+    upgradeMsg.value = `🎉 升级成功！`
+    // 刷新用户信息
+    await userStore.fetchUserInfo()
+  } catch (e: any) {
+    upgradeError.value = e?.message || '升级失败'
+  } finally {
+    upgrading.value = false
+  }
 }
 </script>
 
@@ -116,6 +141,49 @@ function handleLogout() {
       </div>
     </div>
 
+    <!-- MVP 7.0: 房产资产 -->
+    <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
+      <h3 class="text-sm font-semibold text-slate-300 mb-3">🏠 房产资产</h3>
+
+      <div class="flex items-center gap-4 px-3 py-3 rounded-xl bg-slate-700/10">
+        <div class="text-3xl">{{ currentHousing.emoji }}</div>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-bold text-slate-100">{{ currentHousing.name }}</div>
+          <div class="text-[10px] text-slate-500 mt-0.5">{{ currentHousing.badge }}</div>
+          <div class="text-[10px] text-slate-600 mt-0.5 italic">"{{ currentHousing.description }}"</div>
+        </div>
+      </div>
+
+      <!-- 升级入口 -->
+      <div v-if="nextHousing" class="mt-3">
+        <div class="flex items-center justify-between text-xs text-slate-500 mb-2">
+          <span>下一阶: {{ nextHousing.emoji }} {{ nextHousing.name }}</span>
+          <span class="font-mono tabular-nums">{{ formatGold(nextHousing.cost) }}</span>
+        </div>
+
+        <!-- 升级按钮 -->
+        <button
+          class="w-full py-2.5 rounded-xl text-sm font-medium transition-all duration-200 active:scale-[0.98]"
+          :class="userStore.gold >= nextHousing.cost
+            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30'
+            : 'bg-slate-700/30 text-slate-500 border border-slate-700 cursor-not-allowed'"
+          :disabled="upgrading || userStore.gold < nextHousing.cost"
+          @click="handleUpgrade"
+        >
+          {{ upgrading ? '⏳ 升级中...' : `耗费 ${formatGoldCompact(nextHousing.cost)} 🪙 升级` }}
+        </button>
+
+        <!-- 升级反馈 -->
+        <p v-if="upgradeMsg" class="mt-2 text-xs text-green-400 text-center">{{ upgradeMsg }}</p>
+        <p v-else-if="upgradeError" class="mt-2 text-xs text-red-400 text-center">{{ upgradeError }}</p>
+      </div>
+
+      <!-- 满级 -->
+      <div v-else class="mt-3 text-center py-3">
+        <span class="text-xs text-yellow-400">👑 已登顶！你是全服唯一的传说</span>
+      </div>
+    </div>
+
     <!-- 资产概览卡片 -->
     <div class="grid grid-cols-3 gap-3">
       <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-3 text-center">
@@ -156,7 +224,7 @@ function handleLogout() {
               <span class="text-sm font-medium text-slate-200">{{ inv.name }}</span>
               <span class="text-xs font-mono tabular-nums text-slate-300">{{ formatAmount(inv.amount) }}</span>
             </div>
-            <!-- 容量进度条（视觉占位，最大 10000 吨） -->
+            <!-- 容量进度条 -->
             <div class="mt-1.5 h-1.5 rounded-full bg-slate-700 overflow-hidden">
               <div
                 class="h-full rounded-full bg-blue-500/60 transition-all duration-500"

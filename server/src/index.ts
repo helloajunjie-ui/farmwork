@@ -6,6 +6,7 @@ import userRoutes from './routes/user.js'
 import farmRoutes from './routes/farm.js'
 import marketRoutes from './routes/market.js'
 import leaderboardRoutes from './routes/leaderboard.js'
+import socialRoutes from './routes/social.js'
 import { initPrices, initSeedPrices, startPriceEngine } from './services/priceEngine.js'
 
 const app = express()
@@ -30,6 +31,7 @@ app.use('/api/user', userRoutes)
 app.use('/api/farm', farmRoutes)
 app.use('/api/market', marketRoutes)
 app.use('/api/leaderboard', leaderboardRoutes)
+app.use('/api/social', socialRoutes)
 
 // 健康检查
 app.get('/api/health', (_req, res) => {
@@ -61,5 +63,7 @@ app.listen(PORT, async () => {
   console.log(`   🤝  /api/market/buy`)
   console.log(`   🏢  /api/market/companies`)
   console.log(`   💼  /api/market/sell-to-company`)
-  console.log(`   🏆  /api/leaderboard\n`)
+  console.log(`   🏆  /api/leaderboard`)
+  console.log(`   🆔  /api/social/profile/:username`)
+  console.log(`   🏠  /api/social/upgrade-house\n`)
 })

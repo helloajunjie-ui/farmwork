@@ -2,12 +2,22 @@
 import { ref, onMounted } from 'vue'
 import { useLeaderboardStore } from '../stores/leaderboard'
 import { formatGoldCompact } from '../utils/format'
+import ProfileCardModal from './ProfileCardModal.vue'
 
 defineProps<{ show: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 
 const leaderboardStore = useLeaderboardStore()
 const activeTab = ref<'farmers' | 'capitalists'>('farmers')
+
+// MVP 7.0: 点击名字弹出名片
+const selectedUsername = ref<string | null>(null)
+const showProfile = ref(false)
+
+function openProfile(username: string) {
+  selectedUsername.value = username
+  showProfile.value = true
+}
 
 onMounted(() => {
   leaderboardStore.fetchLeaderboard()
@@ -87,7 +97,12 @@ function getRankEmoji(rank: number): string {
                 {{ entry.nickname.charAt(0) }}
               </div>
               <div class="flex-1 min-w-0">
-                <div class="text-sm font-medium text-slate-200 truncate">{{ entry.nickname }}</div>
+                <button
+                  class="text-sm font-medium text-cyan-400 hover:text-cyan-300 underline underline-offset-2 decoration-cyan-400/30 truncate transition-colors"
+                  @click="openProfile(entry.nickname)"
+                >
+                  {{ entry.nickname }}
+                </button>
                 <div class="text-[10px] text-slate-500">
                   🏞️ {{ entry.unlocked_plots }} 块地
                 </div>
@@ -114,7 +129,12 @@ function getRankEmoji(rank: number): string {
                 {{ entry.nickname.charAt(0) }}
               </div>
               <div class="flex-1 min-w-0">
-                <div class="text-sm font-medium text-slate-200 truncate">{{ entry.nickname }}</div>
+                <button
+                  class="text-sm font-medium text-cyan-400 hover:text-cyan-300 underline underline-offset-2 decoration-cyan-400/30 truncate transition-colors"
+                  @click="openProfile(entry.nickname)"
+                >
+                  {{ entry.nickname }}
+                </button>
                 <div class="text-[10px] text-slate-500">
                   🏞️ {{ entry.unlocked_plots }} 块地
                 </div>
@@ -198,7 +218,12 @@ function getRankEmoji(rank: number): string {
                 {{ entry.nickname.charAt(0) }}
               </div>
               <div class="flex-1 min-w-0">
-                <div class="text-sm font-medium text-slate-200 truncate">{{ entry.nickname }}</div>
+                <button
+                  class="text-sm font-medium text-cyan-400 hover:text-cyan-300 underline underline-offset-2 decoration-cyan-400/30 truncate transition-colors"
+                  @click="openProfile(entry.nickname)"
+                >
+                  {{ entry.nickname }}
+                </button>
                 <div class="text-[10px] text-slate-500">
                   🏞️ {{ entry.unlocked_plots }} 块地
                 </div>
@@ -225,7 +250,12 @@ function getRankEmoji(rank: number): string {
                 {{ entry.nickname.charAt(0) }}
               </div>
               <div class="flex-1 min-w-0">
-                <div class="text-sm font-medium text-slate-200 truncate">{{ entry.nickname }}</div>
+                <button
+                  class="text-sm font-medium text-cyan-400 hover:text-cyan-300 underline underline-offset-2 decoration-cyan-400/30 truncate transition-colors"
+                  @click="openProfile(entry.nickname)"
+                >
+                  {{ entry.nickname }}
+                </button>
                 <div class="text-[10px] text-slate-500">
                   🏞️ {{ entry.unlocked_plots }} 块地
                 </div>
@@ -246,5 +276,12 @@ function getRankEmoji(rank: number): string {
         </div>
       </div>
     </div>
+
+    <!-- MVP 7.0: 名片弹窗 -->
+    <ProfileCardModal
+      :show="showProfile"
+      :username="selectedUsername"
+      @close="showProfile = false"
+    />
   </Teleport>
 </template>

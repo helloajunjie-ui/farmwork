@@ -17,6 +17,7 @@ model User {
   passwordHash String    @map("password_hash")                      // bcrypt 哈希
   nickname     String    @default("")
   gold         Int       @default(100)
+  housingTier  Int       @default(1) @map("housing_tier")           // MVP 7.0: 房产等级 1~20
   upkeepRate   Float     @default(0) @map("upkeep_rate")            // 当前每分钟地租
   lastUpkeepAt DateTime  @default(now()) @map("last_upkeep_at")     // 上次地租结算时间
   isBankrupt   Boolean   @default(false) @map("is_bankrupt")        // 是否处于破产状态
