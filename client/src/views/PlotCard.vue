@@ -26,8 +26,9 @@ function formatTime(minutes: number): string {
   return m > 0 ? `${h} 小时 ${m} 分钟` : `${h} 小时`
 }
 
+// 🔴 V1.0.1: 种子库存按作物区分 — 读取 seed_{cropId}
 function getSeedInventory(id: string): number {
-  return userStore.items[id] ?? 0
+  return userStore.items[`seed_${id}`] ?? 0
 }
 
 async function handlePlant() {

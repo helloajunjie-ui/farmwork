@@ -132,12 +132,13 @@ export const CROPS: Record<string, CropConfig> = {
   // ===== 🌾 谷物薯类 (8种) =====
   wheat: crop({ id: 'wheat', name: '小麦', emoji: '🌾', category: 'grain', totalTimeMin: 10, yield: 4, baseSeedPrice: 2, baseSellPrice: 3, companyId: 'flour_mill' }),
   corn: crop({ id: 'corn', name: '玉米', emoji: '🌽', category: 'grain', totalTimeMin: 28, yield: 3, baseSeedPrice: 4, baseSellPrice: 6, companyId: 'power_plant' }),
-  rice: crop({ id: 'rice', name: '水稻', emoji: '🍚', category: 'grain', totalTimeMin: 35, yield: 3, baseSeedPrice: 5, baseSellPrice: 8, companyId: 'flour_mill' }),
+  rice: crop({ id: 'rice', name: '水稻', emoji: '🍚', category: 'grain', totalTimeMin: 35, yield: 3, baseSeedPrice: 5, baseSellPrice: 8, companyId: 'brewery' }),
   sorghum: crop({ id: 'sorghum', name: '高粱', emoji: '🌾', category: 'grain', totalTimeMin: 20, yield: 4, baseSeedPrice: 2, baseSellPrice: 3, companyId: 'feed_factory' }),
   potato: crop({ id: 'potato', name: '土豆', emoji: '🥔', category: 'grain', totalTimeMin: 15, yield: 5, baseSeedPrice: 3, baseSellPrice: 3, companyId: 'supermarket' }),
   sweet_potato: crop({ id: 'sweet_potato', name: '红薯', emoji: '🍠', category: 'grain', totalTimeMin: 18, yield: 5, baseSeedPrice: 3, baseSellPrice: 3, companyId: 'feed_factory' }),
   oat: crop({ id: 'oat', name: '燕麦', emoji: '🌾', category: 'grain', totalTimeMin: 12, yield: 4, baseSeedPrice: 2, baseSellPrice: 3, companyId: 'flour_mill' }),
   barley: crop({ id: 'barley', name: '大麦', emoji: '🌾', category: 'grain', totalTimeMin: 25, yield: 3, baseSeedPrice: 4, baseSellPrice: 6, companyId: 'brewery' }),
+  hops: crop({ id: 'hops', name: '啤酒花', emoji: '🍺', category: 'cash', totalTimeMin: 45, yield: 3, baseSeedPrice: 8, baseSellPrice: 14, companyId: 'brewery' }),
 
   // ===== 🥬 日常蔬菜 (8种) =====
   cabbage: crop({ id: 'cabbage', name: '白菜', emoji: '🥬', category: 'vegetable', totalTimeMin: 8, yield: 5, baseSeedPrice: 2, baseSellPrice: 2, companyId: 'supermarket' }),

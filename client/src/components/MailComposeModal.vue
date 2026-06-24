@@ -29,7 +29,7 @@ const success = ref('')
 // 可选作物列表（排除种子）
 const offerCrops = computed(() => {
   return Object.entries(ALL_CROPS)
-    .filter(([id]) => id !== 'seed')
+    .filter(([id]) => !id.startsWith('seed_'))
     .map(([id, cfg]) => ({ id, name: cfg.name, emoji: cfg.emoji }))
 })
 

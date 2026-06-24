@@ -69,12 +69,13 @@ export const ALL_CROPS: Record<string, CropConfig> = {
   // 🌾 谷物薯类
   wheat:        { id: 'wheat',         name: '小麦',   emoji: '🌾', category: 'grain',     totalTimeMin: 10,  yield: 4, baseSeedPrice: 2,   baseSellPrice: 3,   companyId: 'flour_mill',   companyName: '红星面粉厂',     companyEmoji: '🏭' },
   corn:         { id: 'corn',          name: '玉米',   emoji: '🌽', category: 'grain',     totalTimeMin: 28,  yield: 3, baseSeedPrice: 4,   baseSellPrice: 6,   companyId: 'power_plant',  companyName: '城市热电厂',     companyEmoji: '⚡' },
-  rice:         { id: 'rice',          name: '水稻',   emoji: '🍚', category: 'grain',     totalTimeMin: 35,  yield: 3, baseSeedPrice: 5,   baseSellPrice: 8,   companyId: 'flour_mill',   companyName: '红星面粉厂',     companyEmoji: '🏭' },
+  rice:         { id: 'rice',          name: '水稻',   emoji: '🍚', category: 'grain',     totalTimeMin: 35,  yield: 3, baseSeedPrice: 5,   baseSellPrice: 8,   companyId: 'brewery',      companyName: '精酿啤酒厂',     companyEmoji: '🍺' },
   sorghum:      { id: 'sorghum',       name: '高粱',   emoji: '🌾', category: 'grain',     totalTimeMin: 20,  yield: 4, baseSeedPrice: 2,   baseSellPrice: 3,   companyId: 'feed_factory', companyName: '全民饲料厂',     companyEmoji: '🌾' },
   potato:       { id: 'potato',        name: '土豆',   emoji: '🥔', category: 'grain',     totalTimeMin: 15,  yield: 5, baseSeedPrice: 3,   baseSellPrice: 3,   companyId: 'supermarket',  companyName: '大润发连锁超市', companyEmoji: '🛒' },
   sweet_potato: { id: 'sweet_potato',  name: '红薯',   emoji: '🍠', category: 'grain',     totalTimeMin: 18,  yield: 5, baseSeedPrice: 3,   baseSellPrice: 3,   companyId: 'feed_factory', companyName: '全民饲料厂',     companyEmoji: '🌾' },
   oat:          { id: 'oat',           name: '燕麦',   emoji: '🌾', category: 'grain',     totalTimeMin: 12,  yield: 4, baseSeedPrice: 2,   baseSellPrice: 3,   companyId: 'flour_mill',   companyName: '红星面粉厂',     companyEmoji: '🏭' },
   barley:       { id: 'barley',        name: '大麦',   emoji: '🌾', category: 'grain',     totalTimeMin: 25,  yield: 3, baseSeedPrice: 4,   baseSellPrice: 6,   companyId: 'brewery',      companyName: '精酿啤酒厂',     companyEmoji: '🍺' },
+  hops:         { id: 'hops',          name: '啤酒花', emoji: '🍺', category: 'cash',      totalTimeMin: 45,  yield: 3, baseSeedPrice: 8,   baseSellPrice: 14,  companyId: 'brewery',      companyName: '精酿啤酒厂',     companyEmoji: '🍺' },
   // 🥬 日常蔬菜
   cabbage:      { id: 'cabbage',       name: '白菜',   emoji: '🥬', category: 'vegetable', totalTimeMin: 8,   yield: 5, baseSeedPrice: 2,   baseSellPrice: 2,   companyId: 'supermarket',  companyName: '大润发连锁超市', companyEmoji: '🛒' },
   tomato:       { id: 'tomato',        name: '番茄',   emoji: '🍅', category: 'vegetable', totalTimeMin: 15,  yield: 4, baseSeedPrice: 3,   baseSellPrice: 4,   companyId: 'supermarket',  companyName: '大润发连锁超市', companyEmoji: '🛒' },

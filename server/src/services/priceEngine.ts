@@ -226,6 +226,7 @@ export async function initSeedPrices() {
 
 /**
  * 获取某个作物的当前种子售价（含相位延迟）
+ * 🔴 V1.0.1: 改为真实时间插值 — 种子价格在 5 分钟内线性逼近目标价
  * 种子价格不会瞬间追上收购价，而是分步追赶，创造套利窗口
  */
 export async function getSeedPrice(cropId: string): Promise<number> {
@@ -246,11 +247,15 @@ export async function getSeedPrice(cropId: string): Promise<number> {
   })
   if (!env) return baseSeedPrice
 
-  // 相位延迟公式：种子价向目标价缓慢移动
+  // 🔴 V1.0.1: 真实时间插值 — 基于上次更新时间计算追赶进度
+  // 种子目标价在 tick() 时更新，每次 tick 间隔 60 秒
+  // 追赶周期 = PHASE_LAG_STEPS * TICK_INTERVAL = 5 * 60s = 300s (5分钟)
+  const phaseLagMs = PHASE_LAG_STEPS * TICK_INTERVAL
+  const elapsed = Date.now() - env.updatedAt.getTime()
+  const progress = Math.min(elapsed / phaseLagMs, 1.0)
+
   const diff = targetPrice - baseSeedPrice
-  const phasePrice = Math.round(
-    baseSeedPrice + diff * (1 - Math.pow(1 - 1 / PHASE_LAG_STEPS, 3))
-  )
+  const phasePrice = Math.round(baseSeedPrice + diff * progress)
 
   return Math.max(baseSeedPrice, phasePrice)
 }

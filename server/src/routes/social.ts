@@ -17,7 +17,7 @@ const router = Router()
 // 返回：昵称、头像、房产等级、房产信息、总净值、土地数
 router.get('/profile/:username', async (req: AuthRequest, res: Response) => {
   try {
-    const { username } = req.params
+    const username = String(req.params.username)
     const user = await prisma.user.findUnique({
       where: { username },
       select: {

@@ -13,7 +13,7 @@ const router = Router()
 // GET /api/social/farm/:username
 router.get('/farm/:username', async (req: AuthRequest, res: Response) => {
   try {
-    const { username } = req.params
+    const username = String(req.params.username)
     const user = await prisma.user.findUnique({
       where: { username },
       select: {
@@ -322,30 +322,35 @@ router.post('/mailbox/:id/accept', async (req: AuthRequest, res: Response) => {
       return
     }
 
+    // 非空断言（已在上面校验过）
+    const offerItem = mail.offerItem
+    const offerAmount = mail.offerAmount
+    const offerPrice = mail.offerPrice
+
     // 原子事务交割
     await prisma.$transaction(async (tx: any) => {
       // 1. 校验收件人库存
       const receiverInv = await tx.inventory.findUnique({
-        where: { userId_item: { userId: mail.receiverId, item: mail.offerItem } },
+        where: { userId_item: { userId: mail.receiverId, item: offerItem } },
       })
-      if (!receiverInv || receiverInv.amount < mail.offerAmount) {
+      if (!receiverInv || receiverInv.amount < offerAmount) {
         throw new Error('你的库存不足，无法成交')
       }
 
       // 2. 金币流转：将预扣的 offerPrice 释放给收件人（发件人已在 Send 时被扣）
       await tx.user.update({
         where: { userId: mail.receiverId },
-        data: { gold: { increment: mail.offerPrice } },
+        data: { gold: { increment: offerPrice } },
       })
 
       // 3. 库存流转：收件人 -> 发件人
       await tx.inventory.update({
-        where: { userId_item: { userId: mail.receiverId, item: mail.offerItem } },
-        data: { amount: { decrement: mail.offerAmount } },
+        where: { userId_item: { userId: mail.receiverId, item: offerItem } },
+        data: { amount: { decrement: offerAmount } },
       })
       await tx.inventory.update({
-        where: { userId_item: { userId: mail.senderId, item: mail.offerItem } },
-        data: { amount: { increment: mail.offerAmount } },
+        where: { userId_item: { userId: mail.senderId, item: offerItem } },
+        data: { amount: { increment: offerAmount } },
       })
 
       // 4. 标记契约成交

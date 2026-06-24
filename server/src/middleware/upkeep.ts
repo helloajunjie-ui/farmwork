@@ -123,7 +123,10 @@ async function liquidate(
 
     // 发放救济金
     const refundAmount = plotsToLiquidate * LIQUIDATION_REFUND
-    const finalGold = currentGold - totalUpkeep + refundAmount
+    let finalGold = currentGold - totalUpkeep + refundAmount
+
+    // 🔴 V1.0.1: 负资产熔断 — 强制归零，防止死档
+    if (finalGold < 0) finalGold = 0
 
     await tx.user.update({
       where: { userId },

@@ -36,8 +36,8 @@ router.post('/login', async (req, res) => {
     return
   }
 
-  if (typeof password !== 'string' || password.length < 4) {
-    res.status(400).json({ code: 4005, message: '密钥长度不能少于 4 位', data: null })
+  if (typeof password !== 'string' || password.length < 6) {
+    res.status(400).json({ code: 4005, message: '密钥长度不能少于 6 位', data: null })
     return
   }
 
@@ -59,14 +59,14 @@ router.post('/login', async (req, res) => {
         },
       })
 
-      // MVP 5.1: 初始化库存 — 所有作物默认为 0，但 wheat 直接给 30 颗
+      // 🔴 V1.0.1: 初始化库存 — 所有作物默认为 0，但 wheat 直接给 30 颗
       const inventoryData = CROP_IDS.map((item) => ({
         userId: newUser.userId,
         item,
         amount: item === 'wheat' ? 30 : 0, // 新手赠送 30 颗小麦（10分钟极速作物）
       }))
-      // MVP 5.1: 种子从 10 → 30
-      inventoryData.push({ userId: newUser.userId, item: 'seed', amount: 30 })
+      // 🔴 V1.0.1: 种子按作物区分 — 新手赠送 30 颗小麦种子
+      inventoryData.push({ userId: newUser.userId, item: 'seed_wheat', amount: 30 })
 
       await tx.inventory.createMany({ data: inventoryData })
 
@@ -86,6 +86,27 @@ router.post('/login', async (req, res) => {
     if (!valid) {
       res.status(401).json({ code: 4006, message: '密码错误或该代号已被注册', data: null })
       return
+    }
+
+    // 🔴 V1.0.1: 破产救济金 — 检测破产状态并自动发放
+    const existingUser = user // 此时 user 一定不为 null
+    if (existingUser.isBankrupt && existingUser.gold <= 0) {
+      await prisma.$transaction(async (tx: any) => {
+        await tx.user.update({
+          where: { userId: existingUser.userId },
+          data: {
+            gold: 50,
+            isBankrupt: false,
+          },
+        })
+        // 发放 10 颗小麦种子作为救济
+        await tx.inventory.upsert({
+          where: { userId_item: { userId: existingUser.userId, item: 'seed_wheat' } },
+          create: { userId: existingUser.userId, item: 'seed_wheat', amount: 10 },
+          update: { amount: { increment: 10 } },
+        })
+      })
+      console.log(`[救济] 玩家 ${existingUser.username} 已自动领取破产救济金`)
     }
   }
 

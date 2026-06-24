@@ -28,12 +28,22 @@ const composeTarget = ref('')
 const currentHousing = computed(() => getHousingTier(userStore.housingTier ?? 1))
 const nextHousing = computed(() => getNextHousingTier(userStore.housingTier ?? 1))
 
+// 🔴 V1.0.1: 计算所有种子总数（seed_ 前缀的物品）
+const totalSeeds = computed(() => {
+  let total = 0
+  for (const [item, amount] of Object.entries(userStore.items)) {
+    if (item.startsWith('seed_')) total += amount
+  }
+  return total
+})
+
 // 计算总净值（前端估算，精确值由后端排行榜提供）
 const estimatedNetWorth = computed(() => {
   let total = userStore.gold
   total += (userStore.upkeep.unlocked_plots || 6) * 1000
   for (const [item, amount] of Object.entries(userStore.items)) {
-    if (item === 'seed' || amount <= 0) continue
+    // 🔴 V1.0.1: 排除所有 seed_ 前缀的种子物品
+    if (item.startsWith('seed_') || amount <= 0) continue
     const crop = ALL_CROPS[item]
     if (crop) {
       total += amount * crop.baseSellPrice
@@ -52,7 +62,8 @@ const playerClass = computed(() => {
 // 有库存的作物列表（排除种子）
 const inventoryItems = computed(() => {
   return Object.entries(userStore.items)
-    .filter(([k, v]) => k !== 'seed' && v > 0)
+    // 🔴 V1.0.1: 排除所有 seed_ 前缀的种子物品
+    .filter(([k, v]) => !k.startsWith('seed_') && v > 0)
     .map(([item, amount]) => {
       const crop = ALL_CROPS[item]
       return {
@@ -218,7 +229,7 @@ async function handleUpgrade() {
       </div>
       <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-3 text-center">
         <div class="text-lg mb-1">🌱</div>
-        <div class="text-sm font-bold font-mono text-slate-200">{{ (userStore.items['seed'] ?? 0).toLocaleString() }}</div>
+        <div class="text-sm font-bold font-mono text-slate-200">{{ totalSeeds.toLocaleString() }}</div>
         <div class="text-[10px] text-slate-500">种子</div>
       </div>
       <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-3 text-center">

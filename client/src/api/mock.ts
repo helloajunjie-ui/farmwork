@@ -35,8 +35,8 @@ import {
 // ===== 模拟数据库 =====
 let nextOrderId = 1
 
-// 初始化用户库存：seed + 所有 40 种作物
-const initialItems: Record<string, number> = { seed: 10 }
+// 🔴 V1.0.1: 初始化用户库存：seed_wheat + 所有作物
+const initialItems: Record<string, number> = { seed_wheat: 10 }
 for (const id of CROP_IDS) {
   initialItems[id] = 0
 }
@@ -175,9 +175,11 @@ export async function mockPlant(plotId: number, crop: string): Promise<void> {
   if (!plot) throw { code: 9001, message: '土地不存在' }
   if (plot.status !== 'idle') throw { code: 1001, message: '土地已被占用' }
   if (!ALL_CROPS[crop]) throw { code: 1003, message: '不支持的作物' }
-  if ((user.items.seed ?? 0) < 1) throw { code: 1002, message: '种子不足' }
+  // 🔴 V1.0.1: 按作物区分种子
+  const seedItem = `seed_${crop}`
+  if ((user.items[seedItem] ?? 0) < 1) throw { code: 1002, message: `${ALL_CROPS[crop].name}种子不足` }
 
-  user.items.seed -= 1
+  user.items[seedItem] -= 1
   plot.planted_at = now()
   plot.crop = crop
   plot.status = 'growing'
@@ -278,7 +280,9 @@ export async function mockBuySeed(amount: number, crop?: string): Promise<BuySee
   }
 
   user.gold -= totalCost
-  user.items.seed = (user.items.seed ?? 0) + amount
+  // 🔴 V1.0.1: 按作物区分种子
+  const seedItem = `seed_${cropId}`
+  user.items[seedItem] = (user.items[seedItem] ?? 0) + amount
 
   return {
     amount,

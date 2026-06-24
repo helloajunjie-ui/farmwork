@@ -82,6 +82,12 @@ router.post('/sell', async (req, res) => {
     return
   }
 
+  // 🔴 V1.0.1: 强校验 item 必须是有效作物 ID
+  if (!isValidCrop(item)) {
+    res.status(400).json(fail(2002, '无效的物品类型'))
+    return
+  }
+
   const totalPrice = amount * unit_price
 
   try {
@@ -195,11 +201,6 @@ router.post('/buy', async (req, res) => {
         amount
       )
 
-      // 更新订单状态
-      await tx.$executeRawUnsafe(
-        `UPDATE market_orders SET status = 'sold', updated_at = NOW() WHERE id = $1`,
-        order_id
-      )
 
       // 查询买家剩余金币
       const buyerResult: any[] = await tx.$queryRawUnsafe(

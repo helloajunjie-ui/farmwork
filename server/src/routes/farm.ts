@@ -207,6 +207,7 @@ router.post('/plant', async (req, res) => {
   }
 
   const cropConfig = CROPS[crop]
+  const seedItem = `seed_${crop}`
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -216,13 +217,14 @@ router.post('/plant', async (req, res) => {
       if (!plot) throw { code: 9001, msg: '土地不存在' }
       if (plot.status !== 'idle') throw { code: 1001, msg: '土地不可用' }
 
+      // 🔴 V1.0.1: 按作物区分种子 — 消耗 seed_{cropId}
       const inv = await tx.inventory.findUnique({
-        where: { userId_item: { userId, item: 'seed' } },
+        where: { userId_item: { userId, item: seedItem } },
       })
-      if (!inv || inv.amount < 1) throw { code: 1002, msg: '种子不足' }
+      if (!inv || inv.amount < 1) throw { code: 1002, msg: `${cropConfig.name}种子不足` }
 
       await tx.inventory.update({
-        where: { userId_item: { userId, item: 'seed' } },
+        where: { userId_item: { userId, item: seedItem } },
         data: { amount: { decrement: 1 } },
       })
 
@@ -256,7 +258,9 @@ router.post('/harvest', async (req, res) => {
       if (!plot) throw { code: 9001, msg: '土地不存在' }
       if (plot.status !== 'ready') throw { code: 1101, msg: '该土地未播种或未成熟' }
 
-      const crop = plot.crop ?? 'corn'
+      // 🔴 V1.0.1: 空值熔断 — 严禁默认给 corn
+      if (!plot.crop) throw { code: 1103, msg: '异常地块数据：作物信息缺失' }
+      const crop = plot.crop
       const cropConfig = CROPS[crop]
       if (!cropConfig) throw { code: 1003, msg: '未知作物' }
 
@@ -399,9 +403,15 @@ router.post('/buy-seed', async (req, res) => {
     return
   }
 
-  // 默认购买玉米种子（向后兼容）
-  const cropId = crop && isValidCrop(crop) ? crop : 'corn'
+  // 🔴 V1.0.1: crop 参数必传，不再默认 corn
+  if (!crop || !isValidCrop(crop)) {
+    res.status(400).json(fail(9001, '请指定要购买的作物种子'))
+    return
+  }
+
+  const cropId = crop
   const cropConfig = CROPS[cropId]
+  const seedItem = `seed_${cropId}`
 
   // 动态种子价（相位延迟引擎）
   const seedPrice = await getSeedPrice(cropId)
@@ -415,14 +425,14 @@ router.post('/buy-seed', async (req, res) => {
         throw { code: 5001, msg: `金币不足，需要 ${totalCost} 金币` }
       }
 
-      // 扣金币 + 加种子（通用种子，不区分作物）
+      // 扣金币 + 加种子（按作物区分：seed_{cropId}）
       await tx.user.update({
         where: { userId },
         data: { gold: { decrement: totalCost } },
       })
       await tx.inventory.upsert({
-        where: { userId_item: { userId, item: 'seed' } },
-        create: { userId, item: 'seed', amount },
+        where: { userId_item: { userId, item: seedItem } },
+        create: { userId, item: seedItem, amount },
         update: { amount: { increment: amount } },
       })
     })

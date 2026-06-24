@@ -1,5 +1,6 @@
 import express from 'express'
 import cors from 'cors'
+import rateLimit from 'express-rate-limit'
 import { authMiddleware } from './middleware/auth.js'
 import authRoutes from './routes/auth.js'
 import userRoutes from './routes/user.js'
@@ -26,8 +27,17 @@ app.use((req, _res, next) => {
 // JWT 鉴权（白名单路由放行 /api/auth/login, /api/health）
 app.use(authMiddleware)
 
+// 🔐 V1.0.1: 登录接口限流 — 每 IP 每分钟最多 10 次
+const authLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 分钟窗口
+  max: 10,
+  message: { code: 429, message: '请求过于频繁，请稍后再试', data: null },
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+
 // 路由挂载
-app.use('/api/auth', authRoutes)
+app.use('/api/auth', authLimiter, authRoutes)
 app.use('/api/user', userRoutes)
 app.use('/api/farm', farmRoutes)
 app.use('/api/market', marketRoutes)

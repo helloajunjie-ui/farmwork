@@ -37,21 +37,22 @@ async function main() {
   // 初始化库存（所有 40 种作物 + 通用种子）
   const inventoryData: { userId: number; item: string; amount: number }[] = []
 
+  // 🔴 V1.0.1: 种子按作物区分 — seed_{cropId}
   // 玩家1（青羽）：少量种子，无库存
-  inventoryData.push({ userId: users[0].userId, item: 'seed', amount: 20 })
+  inventoryData.push({ userId: users[0].userId, item: 'seed_wheat', amount: 20 })
   for (const cropId of CROP_IDS) {
     inventoryData.push({ userId: users[0].userId, item: cropId, amount: 0 })
   }
 
   // 玩家2（农民小王）：有部分收成
-  inventoryData.push({ userId: users[1].userId, item: 'seed', amount: 10 })
+  inventoryData.push({ userId: users[1].userId, item: 'seed_wheat', amount: 10 })
   for (const cropId of CROP_IDS) {
     const amount = Math.random() < 0.3 ? Math.floor(Math.random() * 10) + 1 : 0
     inventoryData.push({ userId: users[1].userId, item: cropId, amount })
   }
 
   // 玩家3（商人大李）：有较多库存用于挂单
-  inventoryData.push({ userId: users[2].userId, item: 'seed', amount: 5 })
+  inventoryData.push({ userId: users[2].userId, item: 'seed_wheat', amount: 5 })
   for (const cropId of CROP_IDS) {
     const amount = Math.random() < 0.4 ? Math.floor(Math.random() * 15) + 2 : 0
     inventoryData.push({ userId: users[2].userId, item: cropId, amount })
