@@ -198,6 +198,7 @@ export interface SellToCompanyResponse {
 }
 
 // ===== MVP 7.0: 社交名片 & 房产 =====
+// MVP 8.1: 新增 fiat_value 双重计价
 export interface HousingInfo {
   name: string
   emoji: string
@@ -205,6 +206,7 @@ export interface HousingInfo {
   color: string
   badge: string
   total_cost: number
+  fiat_value?: string  // 现实估值，如 "¥ 65,180,000 RMB"
 }
 
 export interface ProfileData {

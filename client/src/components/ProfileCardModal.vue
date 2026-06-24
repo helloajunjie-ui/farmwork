@@ -96,7 +96,14 @@ function getGlowStyle(tier: number): string {
         <div class="px-6 py-4 text-center">
           <div class="text-5xl mb-2">{{ profile.housing.emoji }}</div>
           <h3 class="text-lg font-bold text-white">{{ profile.housing.name }}</h3>
-          <p class="text-sm text-white/60 mt-1 italic leading-relaxed">
+          <!-- MVP 8.1: 金色双重计价 — 第一视觉焦点 -->
+          <div
+            v-if="profile.housing.fiat_value"
+            class="mt-2 bg-gradient-to-r from-yellow-400 to-amber-600 bg-clip-text text-transparent font-bold text-xl tracking-wide"
+          >
+            💎 {{ profile.housing.fiat_value }}
+          </div>
+          <p class="text-sm text-white/60 mt-2 italic leading-relaxed">
             "{{ profile.housing.description }}"
           </p>
         </div>

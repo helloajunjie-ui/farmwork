@@ -72,6 +72,7 @@ router.get('/profile/:username', async (req: AuthRequest, res: Response) => {
           color: housing.color,
           badge: housing.badge,
           total_cost: housing.totalCost,
+          fiat_value: housing.fiatValue,
         },
         unlocked_plots: unlockedPlots,
         net_worth: netWorth,

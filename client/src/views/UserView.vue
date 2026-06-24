@@ -159,7 +159,7 @@ async function handleUpgrade() {
       </div>
     </div>
 
-    <!-- MVP 7.0: 房产资产 -->
+    <!-- MVP 8.1: 房产资产 + 双重计价 -->
     <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
       <h3 class="text-sm font-semibold text-slate-300 mb-3">🏠 房产资产</h3>
 
@@ -167,6 +167,13 @@ async function handleUpgrade() {
         <div class="text-3xl">{{ currentHousing.emoji }}</div>
         <div class="flex-1 min-w-0">
           <div class="text-sm font-bold text-slate-100">{{ currentHousing.name }}</div>
+          <!-- MVP 8.1: 金色现实估值 -->
+          <div
+            v-if="currentHousing.fiatValue"
+            class="mt-0.5 bg-gradient-to-r from-yellow-400 to-amber-600 bg-clip-text text-transparent font-bold text-sm tracking-wide"
+          >
+            💎 {{ currentHousing.fiatValue }}
+          </div>
           <div class="text-[10px] text-slate-500 mt-0.5">{{ currentHousing.badge }}</div>
           <div class="text-[10px] text-slate-600 mt-0.5 italic">"{{ currentHousing.description }}"</div>
         </div>
